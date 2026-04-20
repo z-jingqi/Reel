@@ -1,0 +1,24 @@
+# Copy this file to .dev.vars and fill in at least one provider key.
+# .dev.vars is read by `wrangler dev` and is gitignored.
+
+DEFAULT_PROVIDER=anthropic
+
+# Admin API key — protects /api/admin/* endpoints.
+# Generate a random long string, e.g. `openssl rand -hex 32`
+ADMIN_API_KEY=change-me-to-a-random-secret
+
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+GOOGLE_GENERATIVE_AI_API_KEY=
+DEEPSEEK_API_KEY=
+OPENROUTER_API_KEY=
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_KEY=
+
+# Auto-fill (optional — leave any key blank to disable that kind's lookup).
+# TMDB:         https://www.themoviedb.org/settings/api
+# RAWG:         https://rawg.io/apidocs
+# Google Books: optional, keyless works with lower quota.
+TMDB_API_KEY=
+RAWG_API_KEY=
+GOOGLE_BOOKS_API_KEY=

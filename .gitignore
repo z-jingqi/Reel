@@ -1,0 +1,14 @@
+node_modules
+.pnpm-store
+.turbo
+dist
+.output
+.wrangler
+.dev.vars
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage
+.vite

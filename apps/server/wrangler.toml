@@ -1,0 +1,23 @@
+name = "reel-server"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[dev]
+port = 8787
+
+[[d1_databases]]
+binding = "DB"
+database_name = "reel"
+database_id = "ab3f4a1b-d8b6-4cb3-900f-d8a685afb7cb"
+migrations_dir = "../../packages/database/migrations"
+
+# Secrets (set via `wrangler secret put` in prod, or in .dev.vars locally):
+#   ANTHROPIC_API_KEY
+#   OPENAI_API_KEY
+#   GOOGLE_GENERATIVE_AI_API_KEY
+#   DEEPSEEK_API_KEY
+#   OPENROUTER_API_KEY
+#   CLOUDFLARE_ACCOUNT_ID
+#   CLOUDFLARE_API_KEY
+#   DEFAULT_PROVIDER

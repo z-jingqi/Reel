@@ -1,0 +1,23 @@
+{
+  "name": "reel",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @reel/database generate",
+    "db:migrate:local": "pnpm --filter @reel/server db:migrate:local",
+    "db:migrate:remote": "pnpm --filter @reel/server db:migrate:remote",
+    "deploy": "turbo run deploy"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.3"
+  }
+}
