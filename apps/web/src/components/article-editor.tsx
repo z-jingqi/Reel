@@ -45,7 +45,6 @@ import { CategoryChipInput } from "./category-chip-input";
 import { Gallery, GalleryImage } from "./editor-extensions/gallery";
 import { ItemLinkInput } from "./item-link-input";
 import { ResizeHandle } from "./resize-handle";
-import { TagChipInput } from "./tag-chip-input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -75,7 +74,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 
 interface Initial {
   id?: number;
@@ -153,7 +151,7 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
     editorProps: {
       attributes: {
         class:
-          "tiptap prose prose-invert max-w-none focus:outline-none min-h-[calc(100vh-16rem)]",
+          "tiptap prose prose-neutral dark:prose-invert max-w-none focus:outline-none min-h-[calc(100vh-16rem)]",
       },
     },
   });
@@ -190,7 +188,7 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
     if (!confirm("Delete this article? This cannot be undone.")) return;
     await apiFetch(`/articles/${initial.id}`, { method: "DELETE" });
     queryClient.invalidateQueries({ queryKey: ["articles"] });
-    navigate({ to: "/articles" });
+    navigate({ to: "/" });
   }
 
   async function runAiAction(action: WritingAction) {
@@ -331,7 +329,7 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
     <div className="-m-6 flex h-[calc(100vh)] min-h-[calc(100vh)]">
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-3xl px-6 py-8 lg:px-10">
+          <div className="mx-auto max-w-5xl px-6 py-8 lg:px-10">
             <header className="mb-6 flex items-start gap-3">
               <div className="flex-1">
                 <Input
@@ -386,13 +384,8 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
               </Button>
             </header>
 
-            <div className="mb-4 space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Tags</Label>
-              <TagChipInput selected={tagIds} onChange={setTagIds} />
-            </div>
-
             <EditorToolbar editor={editor} aiBusy={aiBusy} onAi={runAiAction} />
-            <div className="mt-4">
+            <div className="mt-3 rounded-md border border-border bg-card px-5 py-4 transition-colors focus-within:border-ring">
               <EditorContent editor={editor} />
             </div>
           </div>
@@ -529,7 +522,7 @@ function EditorToolbar({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-card p-1.5">
+    <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-card p-1">
       <ToolbarGroup>
         <ToolbarButton
           label="Undo"
@@ -673,10 +666,10 @@ function EditorToolbar({
       <div className="ml-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="outline" className="h-8 gap-1">
-              <Sparkles className="h-3.5 w-3.5" />
+            <Button size="xs" variant="outline">
+              <Sparkles />
               AI
-              {aiBusy && <Loader2 className="ml-1 h-3 w-3 animate-spin" />}
+              {aiBusy && <Loader2 className="animate-spin" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -711,7 +704,7 @@ function ToolbarGroup({ children }: { children: React.ReactNode }) {
 }
 
 function Divider() {
-  return <div className="mx-1 h-5 w-px bg-border" />;
+  return <div className="mx-1 h-4 w-px bg-border" />;
 }
 
 function ToolbarButton({
@@ -728,19 +721,17 @@ function ToolbarButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      size="icon-sm"
+      variant={active ? "secondary" : "ghost"}
       title={label}
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40",
-        active && "bg-secondary text-secondary-foreground",
-      )}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

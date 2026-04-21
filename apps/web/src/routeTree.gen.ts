@@ -9,26 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as SearchRouteImport } from './routes/search'
-import { Route as ReferencesRouteImport } from './routes/references'
 import { Route as ItemsRouteImport } from './routes/items'
-import { Route as CategoriesRouteImport } from './routes/categories'
-import { Route as ArticlesRouteImport } from './routes/articles'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PeopleIdRouteImport } from './routes/people.$id'
 import { Route as ItemsNewRouteImport } from './routes/items_.new'
 import { Route as ItemsIdRouteImport } from './routes/items_.$id'
 import { Route as ArticlesNewRouteImport } from './routes/articles_.new'
 import { Route as ArticlesSlugRouteImport } from './routes/articles_.$slug'
 
-const TagsRoute = TagsRouteImport.update({
-  id: '/tags',
-  path: '/tags',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
@@ -44,34 +35,19 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SearchRoute = SearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReferencesRoute = ReferencesRouteImport.update({
-  id: '/references',
-  path: '/references',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ItemsRoute = ItemsRouteImport.update({
   id: '/items',
   path: '/items',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CategoriesRoute = CategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ArticlesRoute = ArticlesRouteImport.update({
-  id: '/articles',
-  path: '/articles',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeopleIdRoute = PeopleIdRouteImport.update({
+  id: '/people/$id',
+  path: '/people/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ItemsNewRoute = ItemsNewRouteImport.update({
@@ -97,130 +73,95 @@ const ArticlesSlugRoute = ArticlesSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/articles': typeof ArticlesRoute
-  '/categories': typeof CategoriesRoute
   '/items': typeof ItemsRoute
-  '/references': typeof ReferencesRoute
-  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
-  '/tags': typeof TagsRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/articles/new': typeof ArticlesNewRoute
   '/items/$id': typeof ItemsIdRoute
   '/items/new': typeof ItemsNewRoute
+  '/people/$id': typeof PeopleIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/articles': typeof ArticlesRoute
-  '/categories': typeof CategoriesRoute
   '/items': typeof ItemsRoute
-  '/references': typeof ReferencesRoute
-  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
-  '/tags': typeof TagsRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/articles/new': typeof ArticlesNewRoute
   '/items/$id': typeof ItemsIdRoute
   '/items/new': typeof ItemsNewRoute
+  '/people/$id': typeof PeopleIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/articles': typeof ArticlesRoute
-  '/categories': typeof CategoriesRoute
   '/items': typeof ItemsRoute
-  '/references': typeof ReferencesRoute
-  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
-  '/tags': typeof TagsRoute
   '/articles_/$slug': typeof ArticlesSlugRoute
   '/articles_/new': typeof ArticlesNewRoute
   '/items_/$id': typeof ItemsIdRoute
   '/items_/new': typeof ItemsNewRoute
+  '/people/$id': typeof PeopleIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/articles'
-    | '/categories'
     | '/items'
-    | '/references'
-    | '/search'
     | '/settings'
     | '/sign-in'
     | '/sign-up'
-    | '/tags'
     | '/articles/$slug'
     | '/articles/new'
     | '/items/$id'
     | '/items/new'
+    | '/people/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/articles'
-    | '/categories'
     | '/items'
-    | '/references'
-    | '/search'
     | '/settings'
     | '/sign-in'
     | '/sign-up'
-    | '/tags'
     | '/articles/$slug'
     | '/articles/new'
     | '/items/$id'
     | '/items/new'
+    | '/people/$id'
   id:
     | '__root__'
     | '/'
-    | '/articles'
-    | '/categories'
     | '/items'
-    | '/references'
-    | '/search'
     | '/settings'
     | '/sign-in'
     | '/sign-up'
-    | '/tags'
     | '/articles_/$slug'
     | '/articles_/new'
     | '/items_/$id'
     | '/items_/new'
+    | '/people/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ArticlesRoute: typeof ArticlesRoute
-  CategoriesRoute: typeof CategoriesRoute
   ItemsRoute: typeof ItemsRoute
-  ReferencesRoute: typeof ReferencesRoute
-  SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
-  TagsRoute: typeof TagsRoute
   ArticlesSlugRoute: typeof ArticlesSlugRoute
   ArticlesNewRoute: typeof ArticlesNewRoute
   ItemsIdRoute: typeof ItemsIdRoute
   ItemsNewRoute: typeof ItemsNewRoute
+  PeopleIdRoute: typeof PeopleIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tags': {
-      id: '/tags'
-      path: '/tags'
-      fullPath: '/tags'
-      preLoaderRoute: typeof TagsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/sign-up': {
       id: '/sign-up'
       path: '/sign-up'
@@ -242,20 +183,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/search': {
-      id: '/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/references': {
-      id: '/references'
-      path: '/references'
-      fullPath: '/references'
-      preLoaderRoute: typeof ReferencesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/items': {
       id: '/items'
       path: '/items'
@@ -263,25 +190,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ItemsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/categories': {
-      id: '/categories'
-      path: '/categories'
-      fullPath: '/categories'
-      preLoaderRoute: typeof CategoriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/articles': {
-      id: '/articles'
-      path: '/articles'
-      fullPath: '/articles'
-      preLoaderRoute: typeof ArticlesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/people/$id': {
+      id: '/people/$id'
+      path: '/people/$id'
+      fullPath: '/people/$id'
+      preLoaderRoute: typeof PeopleIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/items_/new': {
@@ -317,19 +237,15 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ArticlesRoute: ArticlesRoute,
-  CategoriesRoute: CategoriesRoute,
   ItemsRoute: ItemsRoute,
-  ReferencesRoute: ReferencesRoute,
-  SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
-  TagsRoute: TagsRoute,
   ArticlesSlugRoute: ArticlesSlugRoute,
   ArticlesNewRoute: ArticlesNewRoute,
   ItemsIdRoute: ItemsIdRoute,
   ItemsNewRoute: ItemsNewRoute,
+  PeopleIdRoute: PeopleIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

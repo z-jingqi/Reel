@@ -1,6 +1,6 @@
 import type { ItemKind, ItemStatus } from "@reel/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
@@ -98,7 +98,7 @@ function ItemDetailPage() {
     mutationFn: () => apiFetch(`/items/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
-      navigate({ to: "/items" });
+      navigate({ to: "/items", search: { tab: query.data?.item.kind ?? "movie" } });
     },
   });
 
@@ -310,12 +310,16 @@ function CreditsList({
               <span className="w-24 shrink-0 text-xs uppercase text-muted-foreground">
                 {c.role}
               </span>
-              <span className="flex-1 truncate">
+              <Link
+                to="/people/$id"
+                params={{ id: String(c.personId) }}
+                className="flex-1 truncate hover:underline"
+              >
                 {c.personName}
                 {c.character && (
                   <span className="text-muted-foreground"> as {c.character}</span>
                 )}
-              </span>
+              </Link>
               <Button
                 size="icon"
                 variant="ghost"

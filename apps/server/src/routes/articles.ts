@@ -8,7 +8,7 @@ import {
   tags,
 } from "@reel/database";
 import { articleInputSchema, slugify } from "@reel/shared";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
@@ -20,6 +20,8 @@ export const articlesRouter = new Hono<AppEnv>();
 articlesRouter.get("/", async (c) => {
   const user = c.get("user");
   const db = getDb(c);
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0) || 0);
+  const limit = Math.min(50, Math.max(1, Number(c.req.query("limit") ?? 20) || 20));
   const rows = await db
     .select({
       id: articles.id,
@@ -31,8 +33,11 @@ articlesRouter.get("/", async (c) => {
     })
     .from(articles)
     .where(eq(articles.userId, user.id))
-    .orderBy(articles.updatedAt);
-  return c.json({ articles: rows });
+    .orderBy(desc(articles.pinned), desc(articles.updatedAt))
+    .limit(limit)
+    .offset(offset);
+  const nextOffset = rows.length === limit ? offset + limit : null;
+  return c.json({ articles: rows, nextOffset });
 });
 
 articlesRouter.get("/:slug", async (c) => {

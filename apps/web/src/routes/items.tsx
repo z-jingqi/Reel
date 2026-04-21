@@ -1,12 +1,30 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { apiFetch } from "../api";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const KINDS = ["movie", "tv", "book", "game"] as const;
+type Kind = (typeof KINDS)[number];
+
+const KIND_LABELS: Record<Kind, string> = {
+  movie: "Movies",
+  tv: "TV Shows",
+  book: "Books",
+  game: "Games",
+};
+
+const KIND_SINGULAR: Record<Kind, string> = {
+  movie: "movie",
+  tv: "TV show",
+  book: "book",
+  game: "game",
+};
 
 interface ItemRow {
   id: number;
-  kind: "movie" | "tv" | "book" | "game";
+  kind: Kind;
   title: string;
   year: number | null;
   releaseDate: string | null;
@@ -15,34 +33,63 @@ interface ItemRow {
   coverUrl: string | null;
 }
 
+export interface ItemsSearch {
+  tab: Kind;
+}
+
 export const Route = createFileRoute("/items")({
+  validateSearch: (s: Record<string, unknown>): ItemsSearch => {
+    const t = s.tab;
+    return { tab: KINDS.includes(t as Kind) ? (t as Kind) : "movie" };
+  },
   component: ItemsPage,
 });
 
 function ItemsPage() {
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate({ from: "/items" });
+
   const { data, isLoading } = useQuery({
-    queryKey: ["items"],
-    queryFn: () => apiFetch<{ items: ItemRow[] }>("/items"),
+    queryKey: ["items", tab],
+    queryFn: () => apiFetch<{ items: ItemRow[] }>(`/items?kind=${tab}`),
   });
+
+  const items = data?.items ?? [];
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Library</h1>
+        <h1 className="text-2xl font-semibold">Media</h1>
         <Button asChild>
-          <Link to="/items/new">Add</Link>
+          <Link to="/items/new" search={{ kind: tab }}>
+            New {KIND_SINGULAR[tab]}
+          </Link>
         </Button>
       </div>
+
+      <Tabs
+        value={tab}
+        onValueChange={(v) => navigate({ search: { tab: v as Kind } })}
+        className="mb-4"
+      >
+        <TabsList>
+          {KINDS.map((k) => (
+            <TabsTrigger key={k} value={k}>
+              {KIND_LABELS[k]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
       {isLoading && <div className="text-muted-foreground">Loading…</div>}
-      {data && data.items.length === 0 && (
-        <div className="text-muted-foreground">
-          No items yet. Click <span className="text-foreground">Add</span> to log your first movie,
-          show, book, or game.
+      {!isLoading && items.length === 0 && (
+        <div className="text-sm text-muted-foreground">
+          No {KIND_LABELS[tab].toLowerCase()} yet.
         </div>
       )}
-      {data && data.items.length > 0 && (
+      {items.length > 0 && (
         <ul className="divide-y divide-border">
-          {data.items.map((item) => (
+          {items.map((item) => (
             <li key={item.id}>
               <Link
                 to="/items/$id"
@@ -60,17 +107,18 @@ function ItemsPage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="inline-flex rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                      {item.kind}
-                    </span>
                     <span className="truncate font-medium">{item.title}</span>
                     {item.year && (
-                      <span className="shrink-0 text-sm text-muted-foreground">({item.year})</span>
+                      <span className="shrink-0 text-sm text-muted-foreground">
+                        ({item.year})
+                      </span>
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground">{item.status}</div>
                 </div>
-                {item.rating && <span className="pr-2 text-sm text-amber-400">{item.rating}/10</span>}
+                {item.rating && (
+                  <span className="pr-2 text-sm text-muted-foreground">{item.rating}/10</span>
+                )}
               </Link>
             </li>
           ))}

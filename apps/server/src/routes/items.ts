@@ -10,8 +10,9 @@ import {
   creditInlineSchema,
   type CreditInline,
   itemInputSchema,
+  itemKindSchema,
 } from "@reel/shared";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
@@ -24,11 +25,16 @@ export const itemsRouter = new Hono<AppEnv>();
 itemsRouter.get("/", async (c) => {
   const user = c.get("user");
   const db = getDb(c);
+  const kindParam = c.req.query("kind");
+  const kind = kindParam ? itemKindSchema.safeParse(kindParam) : null;
+  const where = kind?.success
+    ? and(eq(items.userId, user.id), eq(items.kind, kind.data))
+    : eq(items.userId, user.id);
   const rows = await db
     .select()
     .from(items)
-    .where(eq(items.userId, user.id))
-    .orderBy(items.createdAt);
+    .where(where)
+    .orderBy(desc(items.createdAt));
   return c.json({ items: rows });
 });
 

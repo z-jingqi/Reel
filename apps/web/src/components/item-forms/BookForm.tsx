@@ -1,0 +1,96 @@
+import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+
+import { LookupSearch } from "../lookup-search";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  CreditsList,
+  FormActions,
+  StatusField,
+  applyDetail,
+  initialState,
+  useItemSubmit,
+  type ItemFormState,
+} from "./shared";
+
+export function BookForm() {
+  const navigate = useNavigate();
+  const [state, setState] = useState<ItemFormState>(initialState);
+  const { saving, error, submit } = useItemSubmit("book");
+
+  function update<K extends keyof ItemFormState>(key: K, value: ItemFormState[K]) {
+    setState((s) => ({ ...s, [key]: value }));
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit(state, { hideReleaseDate: true });
+      }}
+      className="space-y-5"
+    >
+      <LookupSearch kind="book" onPick={(detail) => setState((s) => applyDetail(s, detail))} />
+
+      <div className="space-y-2">
+        <Label>Title</Label>
+        <Input value={state.title} onChange={(e) => update("title", e.target.value)} required />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Year published</Label>
+          <Input
+            inputMode="numeric"
+            value={state.year}
+            onChange={(e) => update("year", e.target.value.replace(/\D/g, ""))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Rating (1–10)</Label>
+          <Input
+            inputMode="numeric"
+            value={state.rating}
+            onChange={(e) => update("rating", e.target.value.replace(/\D/g, ""))}
+          />
+        </div>
+      </div>
+
+      <StatusField value={state.status} onChange={(v) => update("status", v)} />
+
+      <div className="space-y-2">
+        <Label>Cover URL</Label>
+        <Input value={state.coverUrl} onChange={(e) => update("coverUrl", e.target.value)} />
+        {state.coverUrl && (
+          <img
+            src={state.coverUrl}
+            alt=""
+            className="mt-2 h-40 w-auto rounded border border-border object-cover"
+          />
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label>Synopsis</Label>
+        <Textarea
+          className="min-h-32"
+          value={state.notes}
+          onChange={(e) => update("notes", e.target.value)}
+        />
+      </div>
+
+      <CreditsList
+        credits={state.credits}
+        onRemove={(i) =>
+          setState((s) => ({ ...s, credits: s.credits.filter((_, j) => j !== i) }))
+        }
+      />
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <FormActions saving={saving} onCancel={() => navigate({ to: "/items", search: { tab: "book" } })} />
+    </form>
+  );
+}
