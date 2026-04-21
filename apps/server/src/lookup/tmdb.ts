@@ -1,6 +1,6 @@
 import type {
   CreditInline,
-  ItemKind,
+  WorkKind,
   LookupAdapter,
   LookupCandidate,
   LookupDetail,

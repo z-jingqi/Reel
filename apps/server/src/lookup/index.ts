@@ -1,4 +1,4 @@
-import type { ItemKind, LookupAdapter, LookupSource } from "./types";
+import type { WorkKind, LookupAdapter, LookupSource } from "./types";
 import { googleBooksAdapter } from "./google-books";
 import { rawgAdapter } from "./rawg";
 import { tmdbAdapter } from "./tmdb";
@@ -9,7 +9,7 @@ export const ADAPTERS: Record<LookupSource, LookupAdapter> = {
   rawg: rawgAdapter,
 };
 
-export function adapterForKind(kind: ItemKind): LookupAdapter | null {
+export function adapterForKind(kind: WorkKind): LookupAdapter | null {
   switch (kind) {
     case "movie":
     case "tv":

@@ -1,4 +1,4 @@
-import { articles, items } from "@reel/database";
+import { articles, works } from "@reel/database";
 import { and, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 
@@ -22,35 +22,35 @@ searchRouter.get("/", async (c) => {
   const user = c.get("user");
   const q = (c.req.query("q") ?? "").trim();
   const scope = c.req.query("scope") ?? "all";
-  if (!q) return c.json({ items: [], articles: [] });
+  if (!q) return c.json({ works: [], articles: [] });
 
   const ftsQuery = toFtsQuery(q);
-  if (!ftsQuery) return c.json({ items: [], articles: [] });
+  if (!ftsQuery) return c.json({ works: [], articles: [] });
 
   const db = getDb(c);
 
-  const [itemHits, articleHits] = await Promise.all([
+  const [workHits, articleHits] = await Promise.all([
     scope === "articles"
       ? Promise.resolve([])
       : db
           .select({
-            id: items.id,
-            kind: items.kind,
-            title: items.title,
-            year: items.year,
-            rating: items.rating,
-            status: items.status,
-            coverUrl: items.coverUrl,
+            id: works.id,
+            kind: works.kind,
+            title: works.title,
+            year: works.year,
+            rating: works.rating,
+            status: works.status,
+            coverUrl: works.coverUrl,
           })
-          .from(items)
+          .from(works)
           .where(
             and(
-              eq(items.userId, user.id),
-              sql`${items.id} IN (SELECT rowid FROM items_fts WHERE items_fts MATCH ${ftsQuery})`,
+              eq(works.userId, user.id),
+              sql`${works.id} IN (SELECT rowid FROM works_fts WHERE works_fts MATCH ${ftsQuery})`,
             ),
           )
           .limit(20),
-    scope === "items"
+    scope === "works"
       ? Promise.resolve([])
       : db
           .select({
@@ -69,5 +69,5 @@ searchRouter.get("/", async (c) => {
           .limit(20),
   ]);
 
-  return c.json({ items: itemHits, articles: articleHits });
+  return c.json({ works: workHits, articles: articleHits });
 });

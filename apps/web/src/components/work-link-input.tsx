@@ -1,4 +1,4 @@
-import type { ItemKind } from "@reel/shared";
+import type { WorkKind } from "@reel/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
@@ -16,14 +16,14 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-interface ItemRow {
+interface WorkRow {
   id: number;
-  kind: ItemKind;
+  kind: WorkKind;
   title: string;
   year: number | null;
 }
 
-export function ItemLinkInput({
+export function WorkLinkInput({
   selected,
   onChange,
 }: {
@@ -33,11 +33,11 @@ export function ItemLinkInput({
   const [open, setOpen] = useState(false);
 
   const { data } = useQuery({
-    queryKey: ["items"],
-    queryFn: () => apiFetch<{ items: ItemRow[] }>("/items"),
+    queryKey: ["works"],
+    queryFn: () => apiFetch<{ works: WorkRow[] }>("/works"),
   });
-  const items = data?.items ?? [];
-  const selectedItems = items.filter((i) => selected.includes(i.id));
+  const works = data?.works ?? [];
+  const selectedWorks = works.filter((w) => selected.includes(w.id));
 
   function toggle(id: number) {
     onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
@@ -45,14 +45,14 @@ export function ItemLinkInput({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {selectedItems.map((i) => (
-        <Badge key={i.id} variant="secondary" className="gap-1">
-          <span className="text-[10px] uppercase text-muted-foreground">{i.kind}</span>
-          {i.title}
-          {i.year && <span className="text-muted-foreground">({i.year})</span>}
+      {selectedWorks.map((w) => (
+        <Badge key={w.id} variant="secondary" className="gap-1">
+          <span className="text-[10px] uppercase text-muted-foreground">{w.kind}</span>
+          {w.title}
+          {w.year && <span className="text-muted-foreground">({w.year})</span>}
           <button
             type="button"
-            onClick={() => toggle(i.id)}
+            onClick={() => toggle(w.id)}
             className="text-muted-foreground hover:text-foreground"
           >
             <X className="h-3 w-3" />
@@ -63,29 +63,29 @@ export function ItemLinkInput({
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs">
             <Plus className="h-3 w-3" />
-            Link item
+            Link work
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0" align="start">
           <Command>
             <CommandInput placeholder="Search your library…" />
             <CommandList>
-              <CommandEmpty>No items found.</CommandEmpty>
+              <CommandEmpty>No works found.</CommandEmpty>
               <CommandGroup>
-                {items.map((item) => (
+                {works.map((work) => (
                   <CommandItem
-                    key={item.id}
-                    value={`${item.title} ${item.kind} ${item.year ?? ""}`}
-                    onSelect={() => toggle(item.id)}
+                    key={work.id}
+                    value={`${work.title} ${work.kind} ${work.year ?? ""}`}
+                    onSelect={() => toggle(work.id)}
                   >
                     <span className="mr-2 w-10 shrink-0 text-[10px] uppercase text-muted-foreground">
-                      {item.kind}
+                      {work.kind}
                     </span>
-                    <span className="flex-1 truncate">{item.title}</span>
-                    {item.year && (
-                      <span className="ml-2 text-xs text-muted-foreground">{item.year}</span>
+                    <span className="flex-1 truncate">{work.title}</span>
+                    {work.year && (
+                      <span className="ml-2 text-xs text-muted-foreground">{work.year}</span>
                     )}
-                    {selected.includes(item.id) && (
+                    {selected.includes(work.id) && (
                       <span className="ml-2 text-xs text-muted-foreground">✓</span>
                     )}
                   </CommandItem>

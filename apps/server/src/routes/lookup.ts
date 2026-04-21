@@ -1,4 +1,4 @@
-import { itemKindSchema } from "@reel/shared";
+import { workKindSchema } from "@reel/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -21,7 +21,7 @@ lookupRouter.get("/sources", (c) => {
 });
 
 lookupRouter.get("/:kind", async (c) => {
-  const kind = itemKindSchema.safeParse(c.req.param("kind"));
+  const kind = workKindSchema.safeParse(c.req.param("kind"));
   if (!kind.success) return c.json({ error: "invalid_kind" }, 400);
   const query = querySchema.safeParse({ q: c.req.query("q") });
   if (!query.success) return c.json({ error: "missing_q" }, 400);
@@ -44,7 +44,7 @@ lookupRouter.get("/:kind", async (c) => {
 });
 
 lookupRouter.get("/:kind/:externalId", async (c) => {
-  const kind = itemKindSchema.safeParse(c.req.param("kind"));
+  const kind = workKindSchema.safeParse(c.req.param("kind"));
   if (!kind.success) return c.json({ error: "invalid_kind" }, 400);
   const externalId = c.req.param("externalId");
   if (!externalId) return c.json({ error: "missing_id" }, 400);

@@ -11,16 +11,16 @@ import {
   StatusField,
   applyDetail,
   initialState,
-  useItemSubmit,
-  type ItemFormState,
+  useWorkSubmit,
+  type WorkFormState,
 } from "./shared";
 
-export function GameForm() {
+export function BookForm() {
   const navigate = useNavigate();
-  const [state, setState] = useState<ItemFormState>(initialState);
-  const { saving, error, submit } = useItemSubmit("game");
+  const [state, setState] = useState<WorkFormState>(initialState);
+  const { saving, error, submit } = useWorkSubmit("book");
 
-  function update<K extends keyof ItemFormState>(key: K, value: ItemFormState[K]) {
+  function update<K extends keyof WorkFormState>(key: K, value: WorkFormState[K]) {
     setState((s) => ({ ...s, [key]: value }));
   }
 
@@ -28,28 +28,20 @@ export function GameForm() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        submit(state);
+        submit(state, { hideReleaseDate: true });
       }}
       className="space-y-5"
     >
-      <LookupSearch kind="game" onPick={(detail) => setState((s) => applyDetail(s, detail))} />
+      <LookupSearch kind="book" onPick={(detail) => setState((s) => applyDetail(s, detail))} />
 
       <div className="space-y-2">
         <Label>Title</Label>
         <Input value={state.title} onChange={(e) => update("title", e.target.value)} required />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Released</Label>
-          <Input
-            placeholder="YYYY-MM-DD"
-            value={state.releaseDate}
-            onChange={(e) => update("releaseDate", e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Year</Label>
+          <Label>Year published</Label>
           <Input
             inputMode="numeric"
             value={state.year}
@@ -69,7 +61,7 @@ export function GameForm() {
       <StatusField value={state.status} onChange={(v) => update("status", v)} />
 
       <div className="space-y-2">
-        <Label>Cover art URL</Label>
+        <Label>Cover URL</Label>
         <Input value={state.coverUrl} onChange={(e) => update("coverUrl", e.target.value)} />
         {state.coverUrl && (
           <img
@@ -81,7 +73,7 @@ export function GameForm() {
       </div>
 
       <div className="space-y-2">
-        <Label>Description</Label>
+        <Label>Synopsis</Label>
         <Textarea
           className="min-h-32"
           value={state.notes}
@@ -98,7 +90,7 @@ export function GameForm() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <FormActions saving={saving} onCancel={() => navigate({ to: "/items", search: { tab: "game" } })} />
+      <FormActions saving={saving} onCancel={() => navigate({ to: "/works", search: { tab: "book" } })} />
     </form>
   );
 }

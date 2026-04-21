@@ -1,11 +1,11 @@
 import {
   articleCategories,
-  articleItems,
   articleTags,
+  articleWorks,
   articles,
   categories,
-  items,
   tags,
+  works,
 } from "@reel/database";
 import { articleInputSchema, slugify } from "@reel/shared";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -51,15 +51,15 @@ articlesRouter.get("/:slug", async (c) => {
     .limit(1);
   if (!row) return c.json({ error: "not_found" }, 404);
 
-  const [linkedItems, linkedCategories, linkedTags] = await Promise.all([
-    db.select().from(articleItems).where(eq(articleItems.articleId, row.id)),
+  const [linkedWorks, linkedCategories, linkedTags] = await Promise.all([
+    db.select().from(articleWorks).where(eq(articleWorks.articleId, row.id)),
     db.select().from(articleCategories).where(eq(articleCategories.articleId, row.id)),
     db.select().from(articleTags).where(eq(articleTags.articleId, row.id)),
   ]);
 
   return c.json({
     article: row,
-    itemIds: linkedItems.map((r) => r.itemId),
+    workIds: linkedWorks.map((r) => r.workId),
     categoryIds: linkedCategories.map((r) => r.categoryId),
     tagIds: linkedTags.map((r) => r.tagId),
   });
@@ -68,17 +68,17 @@ articlesRouter.get("/:slug", async (c) => {
 async function verifyOwnedIds(
   c: Parameters<typeof getDb>[0],
   userId: string,
-  itemIds: number[],
+  workIds: number[],
   categoryIds: number[],
   tagIds: number[],
 ): Promise<string | null> {
   const db = getDb(c);
-  if (itemIds.length) {
+  if (workIds.length) {
     const owned = await db
-      .select({ id: items.id })
-      .from(items)
-      .where(and(inArray(items.id, itemIds), eq(items.userId, userId)));
-    if (owned.length !== itemIds.length) return "item_not_owned";
+      .select({ id: works.id })
+      .from(works)
+      .where(and(inArray(works.id, workIds), eq(works.userId, userId)));
+    if (owned.length !== workIds.length) return "work_not_owned";
   }
   if (categoryIds.length) {
     const owned = await db
@@ -100,7 +100,7 @@ async function verifyOwnedIds(
 articlesRouter.post("/", zValidator("json", articleInputSchema), async (c) => {
   const user = c.get("user");
   const input = c.req.valid("json");
-  const err = await verifyOwnedIds(c, user.id, input.itemIds, input.categoryIds, input.tagIds);
+  const err = await verifyOwnedIds(c, user.id, input.workIds, input.categoryIds, input.tagIds);
   if (err) return c.json({ error: err }, 400);
 
   const db = getDb(c);
@@ -120,9 +120,9 @@ articlesRouter.post("/", zValidator("json", articleInputSchema), async (c) => {
 
   if (!row) return c.json({ error: "insert_failed" }, 500);
 
-  if (input.itemIds.length) {
-    await db.insert(articleItems).values(
-      input.itemIds.map((itemId, i) => ({ articleId: row.id, itemId, position: i })),
+  if (input.workIds.length) {
+    await db.insert(articleWorks).values(
+      input.workIds.map((workId, i) => ({ articleId: row.id, workId, position: i })),
     );
   }
   if (input.categoryIds.length) {
@@ -155,7 +155,7 @@ articlesRouter.patch("/:id{[0-9]+}", zValidator("json", articleInputSchema.parti
   const err = await verifyOwnedIds(
     c,
     user.id,
-    input.itemIds ?? [],
+    input.workIds ?? [],
     input.categoryIds ?? [],
     input.tagIds ?? [],
   );
@@ -170,11 +170,11 @@ articlesRouter.patch("/:id{[0-9]+}", zValidator("json", articleInputSchema.parti
 
   const [row] = await db.update(articles).set(updates).where(eq(articles.id, id)).returning();
 
-  if (input.itemIds) {
-    await db.delete(articleItems).where(eq(articleItems.articleId, id));
-    if (input.itemIds.length) {
-      await db.insert(articleItems).values(
-        input.itemIds.map((itemId, i) => ({ articleId: id, itemId, position: i })),
+  if (input.workIds) {
+    await db.delete(articleWorks).where(eq(articleWorks.articleId, id));
+    if (input.workIds.length) {
+      await db.insert(articleWorks).values(
+        input.workIds.map((workId, i) => ({ articleId: id, workId, position: i })),
       );
     }
   }

@@ -1,4 +1,4 @@
-import { itemCredits, items, people } from "@reel/database";
+import { people, workCredits, works } from "@reel/database";
 import { and, asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 
@@ -11,6 +11,8 @@ peopleRouter.get("/:id{[0-9]+}", async (c) => {
   const user = c.get("user");
   const id = Number(c.req.param("id"));
   const db = getDb(c);
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0) || 0);
+  const limit = Math.min(50, Math.max(1, Number(c.req.query("limit") ?? 20) || 20));
 
   const [person] = await db
     .select({
@@ -26,20 +28,23 @@ peopleRouter.get("/:id{[0-9]+}", async (c) => {
 
   const credits = await db
     .select({
-      creditId: itemCredits.id,
-      itemId: items.id,
-      kind: items.kind,
-      title: items.title,
-      year: items.year,
-      coverUrl: items.coverUrl,
-      role: itemCredits.role,
-      character: itemCredits.character,
-      position: itemCredits.position,
+      creditId: workCredits.id,
+      workId: works.id,
+      kind: works.kind,
+      title: works.title,
+      year: works.year,
+      coverUrl: works.coverUrl,
+      role: workCredits.role,
+      character: workCredits.character,
+      position: workCredits.position,
     })
-    .from(itemCredits)
-    .innerJoin(items, eq(items.id, itemCredits.itemId))
-    .where(and(eq(itemCredits.personId, id), eq(items.userId, user.id)))
-    .orderBy(asc(items.kind), asc(items.title));
+    .from(workCredits)
+    .innerJoin(works, eq(works.id, workCredits.workId))
+    .where(and(eq(workCredits.personId, id), eq(works.userId, user.id)))
+    .orderBy(asc(works.kind), asc(works.title))
+    .limit(limit)
+    .offset(offset);
 
-  return c.json({ person, credits });
+  const nextOffset = credits.length === limit ? offset + limit : null;
+  return c.json({ person, credits, nextOffset });
 });

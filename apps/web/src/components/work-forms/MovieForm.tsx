@@ -11,16 +11,16 @@ import {
   StatusField,
   applyDetail,
   initialState,
-  useItemSubmit,
-  type ItemFormState,
+  useWorkSubmit,
+  type WorkFormState,
 } from "./shared";
 
-export function BookForm() {
+export function MovieForm() {
   const navigate = useNavigate();
-  const [state, setState] = useState<ItemFormState>(initialState);
-  const { saving, error, submit } = useItemSubmit("book");
+  const [state, setState] = useState<WorkFormState>(initialState);
+  const { saving, error, submit } = useWorkSubmit("movie");
 
-  function update<K extends keyof ItemFormState>(key: K, value: ItemFormState[K]) {
+  function update<K extends keyof WorkFormState>(key: K, value: WorkFormState[K]) {
     setState((s) => ({ ...s, [key]: value }));
   }
 
@@ -28,20 +28,28 @@ export function BookForm() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        submit(state, { hideReleaseDate: true });
+        submit(state);
       }}
       className="space-y-5"
     >
-      <LookupSearch kind="book" onPick={(detail) => setState((s) => applyDetail(s, detail))} />
+      <LookupSearch kind="movie" onPick={(detail) => setState((s) => applyDetail(s, detail))} />
 
       <div className="space-y-2">
         <Label>Title</Label>
         <Input value={state.title} onChange={(e) => update("title", e.target.value)} required />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label>Year published</Label>
+          <Label>Release date</Label>
+          <Input
+            placeholder="YYYY-MM-DD"
+            value={state.releaseDate}
+            onChange={(e) => update("releaseDate", e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Year</Label>
           <Input
             inputMode="numeric"
             value={state.year}
@@ -61,7 +69,7 @@ export function BookForm() {
       <StatusField value={state.status} onChange={(v) => update("status", v)} />
 
       <div className="space-y-2">
-        <Label>Cover URL</Label>
+        <Label>Poster URL</Label>
         <Input value={state.coverUrl} onChange={(e) => update("coverUrl", e.target.value)} />
         {state.coverUrl && (
           <img
@@ -90,7 +98,7 @@ export function BookForm() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <FormActions saving={saving} onCancel={() => navigate({ to: "/items", search: { tab: "book" } })} />
+      <FormActions saving={saving} onCancel={() => navigate({ to: "/works", search: { tab: "movie" } })} />
     </form>
   );
 }

@@ -1,4 +1,4 @@
-import type { ItemStatus } from "@reel/shared";
+import type { WorkStatus } from "@reel/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -26,17 +26,17 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface Season {
   id: number;
-  itemId: number;
+  workId: number;
   number: number;
   title: string | null;
   year: number | null;
   rating: number | null;
-  status: ItemStatus;
+  status: WorkStatus;
   notes: string | null;
   completedAt: number | null;
 }
 
-const STATUSES: { value: ItemStatus; label: string }[] = [
+const STATUSES: { value: WorkStatus; label: string }[] = [
   { value: "wishlist", label: "Wishlist" },
   { value: "active", label: "Active" },
   { value: "finished", label: "Finished" },
@@ -44,27 +44,27 @@ const STATUSES: { value: ItemStatus; label: string }[] = [
   { value: "paused", label: "Paused" },
 ];
 
-export function SeasonsSection({ itemId }: { itemId: number }) {
+export function SeasonsSection({ workId }: { workId: number }) {
   const queryClient = useQueryClient();
   const { data } = useQuery({
-    queryKey: ["seasons", itemId],
-    queryFn: () => apiFetch<{ seasons: Season[] }>(`/seasons?itemId=${itemId}`),
+    queryKey: ["seasons", workId],
+    queryFn: () => apiFetch<{ seasons: Season[] }>(`/seasons?workId=${workId}`),
   });
 
   const del = useMutation({
     mutationFn: (id: number) => apiFetch(`/seasons/${id}`, { method: "DELETE" }),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ["seasons", itemId] });
-      const prev = queryClient.getQueryData<{ seasons: Season[] }>(["seasons", itemId]);
-      queryClient.setQueryData<{ seasons: Season[] }>(["seasons", itemId], (old) =>
+      await queryClient.cancelQueries({ queryKey: ["seasons", workId] });
+      const prev = queryClient.getQueryData<{ seasons: Season[] }>(["seasons", workId]);
+      queryClient.setQueryData<{ seasons: Season[] }>(["seasons", workId], (old) =>
         old ? { seasons: old.seasons.filter((s) => s.id !== id) } : old,
       );
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(["seasons", itemId], ctx.prev);
+      if (ctx?.prev) queryClient.setQueryData(["seasons", workId], ctx.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["seasons", itemId] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["seasons", workId] }),
   });
 
   const seasons = data?.seasons ?? [];
@@ -73,7 +73,7 @@ export function SeasonsSection({ itemId }: { itemId: number }) {
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Seasons</h2>
-        <NewSeasonDialog itemId={itemId} nextNumber={nextSeasonNumber(seasons)} />
+        <NewSeasonDialog workId={workId} nextNumber={nextSeasonNumber(seasons)} />
       </div>
 
       {seasons.length === 0 ? (
@@ -113,14 +113,14 @@ function nextSeasonNumber(seasons: Season[]): number {
   return Math.max(...seasons.map((s) => s.number)) + 1;
 }
 
-function NewSeasonDialog({ itemId, nextNumber }: { itemId: number; nextNumber: number }) {
+function NewSeasonDialog({ workId, nextNumber }: { workId: number; nextNumber: number }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [number, setNumber] = useState(String(nextNumber));
   const [title, setTitle] = useState("");
   const [year, setYear] = useState("");
   const [rating, setRating] = useState("");
-  const [status, setStatus] = useState<ItemStatus>("wishlist");
+  const [status, setStatus] = useState<WorkStatus>("wishlist");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -139,7 +139,7 @@ function NewSeasonDialog({ itemId, nextNumber }: { itemId: number; nextNumber: n
       await apiFetch("/seasons", {
         method: "POST",
         body: JSON.stringify({
-          itemId,
+          workId,
           number: Number(number) || 0,
           title: title || null,
           year: year ? Number(year) : null,
@@ -148,7 +148,7 @@ function NewSeasonDialog({ itemId, nextNumber }: { itemId: number; nextNumber: n
           notes: notes || null,
         }),
       });
-      queryClient.invalidateQueries({ queryKey: ["seasons", itemId] });
+      queryClient.invalidateQueries({ queryKey: ["seasons", workId] });
       setOpen(false);
       reset();
     } finally {
@@ -185,7 +185,7 @@ function NewSeasonDialog({ itemId, nextNumber }: { itemId: number; nextNumber: n
           </div>
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as ItemStatus)}>
+            <Select value={status} onValueChange={(v) => setStatus(v as WorkStatus)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

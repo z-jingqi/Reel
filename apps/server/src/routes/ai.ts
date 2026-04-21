@@ -1,4 +1,4 @@
-import { items, memories, settings } from "@reel/database";
+import { works, memories, settings } from "@reel/database";
 import {
   credentialsFromEnv,
   getModelInstance,
@@ -72,15 +72,15 @@ aiRouter.post("/writing", zValidator("json", writingRequestSchema), async (c) =>
   const model = getModelInstance(selection, credentialsFromEnv(c.env));
 
   const db = getDb(c);
-  let linkedItemsBlock = "";
-  if (req.itemIds.length) {
+  let linkedWorksBlock = "";
+  if (req.workIds.length) {
     const rows = await db
       .select()
-      .from(items)
-      .where(and(inArray(items.id, req.itemIds), eq(items.userId, user.id)));
+      .from(works)
+      .where(and(inArray(works.id, req.workIds), eq(works.userId, user.id)));
     if (rows.length) {
-      linkedItemsBlock =
-        "\n\nLinked items:\n" +
+      linkedWorksBlock =
+        "\n\nLinked works:\n" +
         rows
           .map((r) => `- [${r.kind}] ${r.title}${r.year ? ` (${r.year})` : ""}`)
           .join("\n");
@@ -88,7 +88,7 @@ aiRouter.post("/writing", zValidator("json", writingRequestSchema), async (c) =>
   }
 
   const system = buildSystem(baseWritingSystem(req.action), style);
-  const prompt = buildUserPrompt(req, linkedItemsBlock);
+  const prompt = buildUserPrompt(req, linkedWorksBlock);
 
   const result = streamText({ model, system, prompt });
   return result.toTextStreamResponse();
@@ -100,13 +100,13 @@ aiRouter.post(
     "json",
     z.object({
       document: z.string().optional().default(""),
-      itemIds: z.array(z.number().int()).default([]),
+      workIds: z.array(z.number().int()).default([]),
       instruction: z.string().optional().default(""),
     }),
   ),
   async (c) => {
     const user = c.get("user");
-    const { document, itemIds, instruction } = c.req.valid("json");
+    const { document, workIds, instruction } = c.req.valid("json");
 
     const [override, style] = await Promise.all([
       loadModelOverride(c, user.id, "model:chat"),
@@ -116,25 +116,25 @@ aiRouter.post(
     const model = getModelInstance(selection, credentialsFromEnv(c.env));
 
     const db = getDb(c);
-    let linkedItemsBlock = "";
-    if (itemIds.length) {
+    let linkedWorksBlock = "";
+    if (workIds.length) {
       const rows = await db
         .select()
-        .from(items)
-        .where(and(inArray(items.id, itemIds), eq(items.userId, user.id)));
-      linkedItemsBlock = rows
+        .from(works)
+        .where(and(inArray(works.id, workIds), eq(works.userId, user.id)));
+      linkedWorksBlock = rows
         .map((r) => `- [${r.kind}] ${r.title}${r.year ? ` (${r.year})` : ""}`)
         .join("\n");
     }
 
     const baseSystem =
       "You are a helpful assistant discussing the user's article and the media it references. " +
-      "Be concise and concrete. Cite items by title when relevant.";
+      "Be concise and concrete. Cite works by title when relevant.";
 
     const result = streamText({
       model,
       system: buildSystem(baseSystem, style),
-      prompt: `Article draft:\n---\n${document}\n---\n\nItems:\n${linkedItemsBlock}\n\nUser: ${instruction}`,
+      prompt: `Article draft:\n---\n${document}\n---\n\nWorks:\n${linkedWorksBlock}\n\nUser: ${instruction}`,
     });
 
     return result.toTextStreamResponse();
@@ -160,12 +160,12 @@ function baseWritingSystem(action: string): string {
 
 function buildUserPrompt(
   req: { action: string; selection?: string; document?: string; instruction?: string },
-  linkedItems: string,
+  linkedWorks: string,
 ): string {
   const parts: string[] = [];
   if (req.document) parts.push(`Full article:\n---\n${req.document}\n---`);
   if (req.selection) parts.push(`Selection:\n---\n${req.selection}\n---`);
-  if (linkedItems) parts.push(linkedItems.trim());
+  if (linkedWorks) parts.push(linkedWorks.trim());
   if (req.instruction) parts.push(`User instruction: ${req.instruction}`);
   parts.push(`Action: ${req.action}`);
   return parts.join("\n\n");

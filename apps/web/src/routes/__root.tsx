@@ -101,7 +101,7 @@ function RootLayout() {
 
         <nav className={cn("flex flex-col gap-0.5 px-2 text-sm", collapsed && "px-1.5")}>
           <NavLink to="/" icon={<FileText className="size-4" />} label="Articles" collapsed={collapsed} />
-          <NavLink to="/items" icon={<Library className="size-4" />} label="Media" collapsed={collapsed} />
+          <NavLink to="/works" icon={<Library className="size-4" />} label="Library" collapsed={collapsed} />
         </nav>
 
         <div className={cn("mt-auto p-3", collapsed && "px-1.5")}>

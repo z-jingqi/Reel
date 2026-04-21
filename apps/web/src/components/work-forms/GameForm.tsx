@@ -11,16 +11,16 @@ import {
   StatusField,
   applyDetail,
   initialState,
-  useItemSubmit,
-  type ItemFormState,
+  useWorkSubmit,
+  type WorkFormState,
 } from "./shared";
 
-export function MovieForm() {
+export function GameForm() {
   const navigate = useNavigate();
-  const [state, setState] = useState<ItemFormState>(initialState);
-  const { saving, error, submit } = useItemSubmit("movie");
+  const [state, setState] = useState<WorkFormState>(initialState);
+  const { saving, error, submit } = useWorkSubmit("game");
 
-  function update<K extends keyof ItemFormState>(key: K, value: ItemFormState[K]) {
+  function update<K extends keyof WorkFormState>(key: K, value: WorkFormState[K]) {
     setState((s) => ({ ...s, [key]: value }));
   }
 
@@ -32,7 +32,7 @@ export function MovieForm() {
       }}
       className="space-y-5"
     >
-      <LookupSearch kind="movie" onPick={(detail) => setState((s) => applyDetail(s, detail))} />
+      <LookupSearch kind="game" onPick={(detail) => setState((s) => applyDetail(s, detail))} />
 
       <div className="space-y-2">
         <Label>Title</Label>
@@ -41,7 +41,7 @@ export function MovieForm() {
 
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label>Release date</Label>
+          <Label>Released</Label>
           <Input
             placeholder="YYYY-MM-DD"
             value={state.releaseDate}
@@ -69,7 +69,7 @@ export function MovieForm() {
       <StatusField value={state.status} onChange={(v) => update("status", v)} />
 
       <div className="space-y-2">
-        <Label>Poster URL</Label>
+        <Label>Cover art URL</Label>
         <Input value={state.coverUrl} onChange={(e) => update("coverUrl", e.target.value)} />
         {state.coverUrl && (
           <img
@@ -81,7 +81,7 @@ export function MovieForm() {
       </div>
 
       <div className="space-y-2">
-        <Label>Synopsis</Label>
+        <Label>Description</Label>
         <Textarea
           className="min-h-32"
           value={state.notes}
@@ -98,7 +98,7 @@ export function MovieForm() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <FormActions saving={saving} onCancel={() => navigate({ to: "/items", search: { tab: "movie" } })} />
+      <FormActions saving={saving} onCancel={() => navigate({ to: "/works", search: { tab: "game" } })} />
     </form>
   );
 }

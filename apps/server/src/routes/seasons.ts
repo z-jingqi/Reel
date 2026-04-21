@@ -1,4 +1,4 @@
-import { items, seasons } from "@reel/database";
+import { seasons, works } from "@reel/database";
 import { seasonInputSchema } from "@reel/shared";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -9,16 +9,16 @@ import type { AppEnv } from "../env";
 
 export const seasonsRouter = new Hono<AppEnv>();
 
-async function assertItemOwned(
+async function assertWorkOwned(
   c: Parameters<typeof getDb>[0],
-  itemId: number,
+  workId: number,
   userId: string,
 ): Promise<boolean> {
   const db = getDb(c);
   const [row] = await db
-    .select({ id: items.id })
-    .from(items)
-    .where(and(eq(items.id, itemId), eq(items.userId, userId)))
+    .select({ id: works.id })
+    .from(works)
+    .where(and(eq(works.id, workId), eq(works.userId, userId)))
     .limit(1);
   return Boolean(row);
 }
@@ -32,22 +32,22 @@ async function assertSeasonOwned(
   const [row] = await db
     .select({ id: seasons.id })
     .from(seasons)
-    .innerJoin(items, eq(items.id, seasons.itemId))
-    .where(and(eq(seasons.id, seasonId), eq(items.userId, userId)))
+    .innerJoin(works, eq(works.id, seasons.workId))
+    .where(and(eq(seasons.id, seasonId), eq(works.userId, userId)))
     .limit(1);
   return Boolean(row);
 }
 
 seasonsRouter.get("/", async (c) => {
   const user = c.get("user");
-  const itemId = Number(c.req.query("itemId"));
-  if (!itemId) return c.json({ error: "itemId required" }, 400);
-  if (!(await assertItemOwned(c, itemId, user.id))) return c.json({ error: "not_found" }, 404);
+  const workId = Number(c.req.query("workId"));
+  if (!workId) return c.json({ error: "workId required" }, 400);
+  if (!(await assertWorkOwned(c, workId, user.id))) return c.json({ error: "not_found" }, 404);
   const db = getDb(c);
   const rows = await db
     .select()
     .from(seasons)
-    .where(eq(seasons.itemId, itemId))
+    .where(eq(seasons.workId, workId))
     .orderBy(seasons.number);
   return c.json({ seasons: rows });
 });
@@ -55,7 +55,7 @@ seasonsRouter.get("/", async (c) => {
 seasonsRouter.post("/", zValidator("json", seasonInputSchema), async (c) => {
   const user = c.get("user");
   const input = c.req.valid("json");
-  if (!(await assertItemOwned(c, input.itemId, user.id))) {
+  if (!(await assertWorkOwned(c, input.workId, user.id))) {
     return c.json({ error: "forbidden" }, 403);
   }
   const db = getDb(c);

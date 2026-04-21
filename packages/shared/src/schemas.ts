@@ -42,17 +42,17 @@ export type InviteCreateInput = z.infer<typeof inviteCreateInputSchema>;
 
 // ---------- library ----------
 
-export const itemKindSchema = z.enum(["movie", "tv", "book", "game"]);
-export type ItemKind = z.infer<typeof itemKindSchema>;
+export const workKindSchema = z.enum(["movie", "tv", "book", "game"]);
+export type WorkKind = z.infer<typeof workKindSchema>;
 
-export const itemStatusSchema = z.enum([
+export const workStatusSchema = z.enum([
   "wishlist",
   "active",
   "finished",
   "dropped",
   "paused",
 ]);
-export type ItemStatus = z.infer<typeof itemStatusSchema>;
+export type WorkStatus = z.infer<typeof workStatusSchema>;
 
 export const personKindSchema = z.enum(["person", "studio"]);
 export type PersonKind = z.infer<typeof personKindSchema>;
@@ -68,28 +68,28 @@ export const creditInlineSchema = z.object({
 });
 export type CreditInline = z.infer<typeof creditInlineSchema>;
 
-export const itemInputSchema = z.object({
-  kind: itemKindSchema,
+export const workInputSchema = z.object({
+  kind: workKindSchema,
   title: nonEmpty,
   year: z.number().int().optional().nullable(),
   releaseDate: releaseDateSchema.optional().nullable(),
   rating: z.number().int().min(1).max(10).optional().nullable(),
-  status: itemStatusSchema.default("wishlist"),
+  status: workStatusSchema.default("wishlist"),
   notes: optionalText,
   coverUrl: optionalText,
   externalIds: z.record(z.union([z.string(), z.number()])).optional().nullable(),
   completedAt: z.number().int().optional().nullable(),
   credits: z.array(creditInlineSchema).optional(),
 });
-export type ItemInput = z.infer<typeof itemInputSchema>;
+export type WorkInput = z.infer<typeof workInputSchema>;
 
 export const seasonInputSchema = z.object({
-  itemId: z.number().int(),
+  workId: z.number().int(),
   number: z.number().int().min(0),
   title: optionalText,
   year: z.number().int().optional().nullable(),
   rating: z.number().int().min(1).max(10).optional().nullable(),
-  status: itemStatusSchema.default("wishlist"),
+  status: workStatusSchema.default("wishlist"),
   notes: optionalText,
   completedAt: z.number().int().optional().nullable(),
 });
@@ -103,7 +103,7 @@ export const personInputSchema = z.object({
 export type PersonInput = z.infer<typeof personInputSchema>;
 
 export const creditInputSchema = z.object({
-  itemId: z.number().int(),
+  workId: z.number().int(),
   personId: z.number().int(),
   role: nonEmpty,
   character: optionalText,
@@ -118,7 +118,7 @@ export const articleInputSchema = z.object({
   bodyJson: z.string().default("{}"),
   bodyText: z.string().default(""),
   pinned: z.boolean().default(false),
-  itemIds: z.array(z.number().int()).default([]),
+  workIds: z.array(z.number().int()).default([]),
   categoryIds: z.array(z.number().int()).default([]),
   tagIds: z.array(z.number().int()).default([]),
 });
@@ -181,7 +181,7 @@ export const writingRequestSchema = z.object({
   selection: z.string().optional(),
   document: z.string().optional(),
   instruction: z.string().optional(),
-  itemIds: z.array(z.number().int()).default([]),
+  workIds: z.array(z.number().int()).default([]),
 });
 export type WritingRequest = z.infer<typeof writingRequestSchema>;
 

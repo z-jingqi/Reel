@@ -13,7 +13,7 @@ interface ArticleDetail {
     bodyText: string;
     pinned: boolean;
   };
-  itemIds: number[];
+  workIds: number[];
   categoryIds: number[];
   tagIds: number[];
 }
@@ -40,7 +40,7 @@ function ArticleDetailPage() {
         slug: data.article.slug,
         bodyJson: data.article.bodyJson,
         pinned: data.article.pinned,
-        itemIds: data.itemIds,
+        workIds: data.workIds,
         categoryIds: data.categoryIds,
         tagIds: data.tagIds,
       }}

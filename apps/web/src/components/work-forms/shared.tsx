@@ -1,4 +1,4 @@
-import type { CreditInline, ItemKind, ItemStatus, LookupDetail } from "@reel/shared";
+import type { CreditInline, WorkKind, WorkStatus, LookupDetail } from "@reel/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, X } from "lucide-react";
@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const STATUSES: { value: ItemStatus; label: string }[] = [
+export const STATUSES: { value: WorkStatus; label: string }[] = [
   { value: "wishlist", label: "Wishlist" },
   { value: "active", label: "Active" },
   { value: "finished", label: "Finished" },
@@ -23,19 +23,19 @@ export const STATUSES: { value: ItemStatus; label: string }[] = [
   { value: "paused", label: "Paused" },
 ];
 
-export interface ItemFormState {
+export interface WorkFormState {
   title: string;
   year: string;
   releaseDate: string;
   rating: string;
-  status: ItemStatus;
+  status: WorkStatus;
   coverUrl: string;
   notes: string;
   credits: CreditInline[];
   externalIds: Record<string, string | number> | null;
 }
 
-export function initialState(): ItemFormState {
+export function initialState(): WorkFormState {
   return {
     title: "",
     year: "",
@@ -49,7 +49,7 @@ export function initialState(): ItemFormState {
   };
 }
 
-export function applyDetail(state: ItemFormState, detail: LookupDetail): ItemFormState {
+export function applyDetail(state: WorkFormState, detail: LookupDetail): WorkFormState {
   return {
     ...state,
     title: detail.title,
@@ -62,13 +62,13 @@ export function applyDetail(state: ItemFormState, detail: LookupDetail): ItemFor
   };
 }
 
-export function useItemSubmit(kind: ItemKind) {
+export function useWorkSubmit(kind: WorkKind) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(state: ItemFormState, overrides?: { hideReleaseDate?: boolean }) {
+  async function submit(state: WorkFormState, overrides?: { hideReleaseDate?: boolean }) {
     setError(null);
     if (!state.title.trim()) {
       setError("Title is required.");
@@ -88,12 +88,12 @@ export function useItemSubmit(kind: ItemKind) {
         externalIds: state.externalIds,
         credits: state.credits,
       };
-      await apiFetch<{ item: { id: number } }>("/items", {
+      await apiFetch<{ work: { id: number } }>("/works", {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      queryClient.invalidateQueries({ queryKey: ["items"] });
-      navigate({ to: "/items", search: { tab: kind } });
+      queryClient.invalidateQueries({ queryKey: ["works"] });
+      navigate({ to: "/works", search: { tab: kind } });
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save.");
@@ -110,13 +110,13 @@ export function StatusField({
   value,
   onChange,
 }: {
-  value: ItemStatus;
-  onChange: (v: ItemStatus) => void;
+  value: WorkStatus;
+  onChange: (v: WorkStatus) => void;
 }) {
   return (
     <div className="space-y-2">
       <Label>Status</Label>
-      <Select value={value} onValueChange={(v) => onChange(v as ItemStatus)}>
+      <Select value={value} onValueChange={(v) => onChange(v as WorkStatus)}>
         <SelectTrigger>
           <SelectValue />
         </SelectTrigger>

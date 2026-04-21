@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 
 import { apiFetch } from "../api";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ const KIND_SINGULAR: Record<Kind, string> = {
   game: "game",
 };
 
-interface ItemRow {
+interface WorkRow {
   id: number;
   kind: Kind;
   title: string;
@@ -33,35 +34,61 @@ interface ItemRow {
   coverUrl: string | null;
 }
 
-export interface ItemsSearch {
+interface WorkPage {
+  works: WorkRow[];
+  nextOffset: number | null;
+}
+
+const PAGE_SIZE = 20;
+
+export interface WorksSearch {
   tab: Kind;
 }
 
-export const Route = createFileRoute("/items")({
-  validateSearch: (s: Record<string, unknown>): ItemsSearch => {
+export const Route = createFileRoute("/works")({
+  validateSearch: (s: Record<string, unknown>): WorksSearch => {
     const t = s.tab;
     return { tab: KINDS.includes(t as Kind) ? (t as Kind) : "movie" };
   },
-  component: ItemsPage,
+  component: WorksPage,
 });
 
-function ItemsPage() {
+function WorksPage() {
   const { tab } = Route.useSearch();
-  const navigate = useNavigate({ from: "/items" });
+  const navigate = useNavigate({ from: "/works" });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["items", tab],
-    queryFn: () => apiFetch<{ items: ItemRow[] }>(`/items?kind=${tab}`),
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
+    queryKey: ["works", "infinite", tab] as const,
+    initialPageParam: 0 as number,
+    queryFn: ({ pageParam }) =>
+      apiFetch<WorkPage>(`/works?kind=${tab}&offset=${pageParam}&limit=${PAGE_SIZE}`),
+    getNextPageParam: (last: WorkPage) => last.nextOffset,
   });
 
-  const items = data?.items ?? [];
+  const works = data?.pages.flatMap((p) => p.works) ?? [];
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Media</h1>
+        <h1 className="text-2xl font-semibold">Library</h1>
         <Button asChild>
-          <Link to="/items/new" search={{ kind: tab }}>
+          <Link to="/works/new" search={{ kind: tab }}>
             New {KIND_SINGULAR[tab]}
           </Link>
         </Button>
@@ -82,23 +109,23 @@ function ItemsPage() {
       </Tabs>
 
       {isLoading && <div className="text-muted-foreground">Loading…</div>}
-      {!isLoading && items.length === 0 && (
+      {!isLoading && works.length === 0 && (
         <div className="text-sm text-muted-foreground">
           No {KIND_LABELS[tab].toLowerCase()} yet.
         </div>
       )}
-      {items.length > 0 && (
+      {works.length > 0 && (
         <ul className="divide-y divide-border">
-          {items.map((item) => (
-            <li key={item.id}>
+          {works.map((w) => (
+            <li key={w.id}>
               <Link
-                to="/items/$id"
-                params={{ id: String(item.id) }}
+                to="/works/$id"
+                params={{ id: String(w.id) }}
                 className="flex items-center gap-3 py-3 hover:bg-accent/30"
               >
-                {item.coverUrl ? (
+                {w.coverUrl ? (
                   <img
-                    src={item.coverUrl}
+                    src={w.coverUrl}
                     alt=""
                     className="h-14 w-10 shrink-0 rounded border border-border object-cover"
                   />
@@ -107,22 +134,27 @@ function ItemsPage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="truncate font-medium">{item.title}</span>
-                    {item.year && (
+                    <span className="truncate font-medium">{w.title}</span>
+                    {w.year && (
                       <span className="shrink-0 text-sm text-muted-foreground">
-                        ({item.year})
+                        ({w.year})
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground">{item.status}</div>
+                  <div className="text-xs text-muted-foreground">{w.status}</div>
                 </div>
-                {item.rating && (
-                  <span className="pr-2 text-sm text-muted-foreground">{item.rating}/10</span>
+                {w.rating && (
+                  <span className="pr-2 text-sm text-muted-foreground">{w.rating}/10</span>
                 )}
               </Link>
             </li>
           ))}
         </ul>
+      )}
+
+      <div ref={sentinelRef} className="h-8" />
+      {isFetchingNextPage && (
+        <div className="py-4 text-center text-xs text-muted-foreground">Loading more…</div>
       )}
     </div>
   );

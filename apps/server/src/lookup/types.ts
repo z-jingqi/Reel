@@ -1,25 +1,25 @@
 import type {
   CreditInline,
-  ItemKind,
+  WorkKind,
   LookupCandidate,
   LookupDetail,
   LookupSource,
 } from "@reel/shared";
 
-export type { CreditInline, ItemKind, LookupCandidate, LookupDetail, LookupSource };
+export type { CreditInline, WorkKind, LookupCandidate, LookupDetail, LookupSource };
 
 export interface LookupAdapter {
   source: LookupSource;
   isConfigured(env: Record<string, string | undefined>): boolean;
   search(
     env: Record<string, string | undefined>,
-    kind: ItemKind,
+    kind: WorkKind,
     query: string,
     signal?: AbortSignal,
   ): Promise<LookupCandidate[]>;
   detail(
     env: Record<string, string | undefined>,
-    kind: ItemKind,
+    kind: WorkKind,
     externalId: string,
     signal?: AbortSignal,
   ): Promise<LookupDetail | null>;

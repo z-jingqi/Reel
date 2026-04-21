@@ -16,6 +16,10 @@ database_name = "reel"
 database_id = "ab3f4a1b-d8b6-4cb3-900f-d8a685afb7cb"
 migrations_dir = "../../packages/database/migrations"
 
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "reel-uploads"
+
 # Secrets (set via `wrangler secret put` in prod, or in .dev.vars locally):
 #   ANTHROPIC_API_KEY
 #   OPENAI_API_KEY

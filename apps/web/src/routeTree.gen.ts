@@ -9,17 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorksRouteImport } from './routes/works'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as ItemsRouteImport } from './routes/items'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WorksNewRouteImport } from './routes/works_.new'
+import { Route as WorksIdRouteImport } from './routes/works_.$id'
 import { Route as PeopleIdRouteImport } from './routes/people.$id'
-import { Route as ItemsNewRouteImport } from './routes/items_.new'
-import { Route as ItemsIdRouteImport } from './routes/items_.$id'
 import { Route as ArticlesNewRouteImport } from './routes/articles_.new'
 import { Route as ArticlesSlugRouteImport } from './routes/articles_.$slug'
 
+const WorksRoute = WorksRouteImport.update({
+  id: '/works',
+  path: '/works',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
@@ -35,29 +40,24 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ItemsRoute = ItemsRouteImport.update({
-  id: '/items',
-  path: '/items',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorksNewRoute = WorksNewRouteImport.update({
+  id: '/works_/new',
+  path: '/works/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorksIdRoute = WorksIdRouteImport.update({
+  id: '/works_/$id',
+  path: '/works/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PeopleIdRoute = PeopleIdRouteImport.update({
   id: '/people/$id',
   path: '/people/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ItemsNewRoute = ItemsNewRouteImport.update({
-  id: '/items_/new',
-  path: '/items/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ItemsIdRoute = ItemsIdRouteImport.update({
-  id: '/items_/$id',
-  path: '/items/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ArticlesNewRoute = ArticlesNewRouteImport.update({
@@ -73,95 +73,102 @@ const ArticlesSlugRoute = ArticlesSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/items': typeof ItemsRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/works': typeof WorksRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/articles/new': typeof ArticlesNewRoute
-  '/items/$id': typeof ItemsIdRoute
-  '/items/new': typeof ItemsNewRoute
   '/people/$id': typeof PeopleIdRoute
+  '/works/$id': typeof WorksIdRoute
+  '/works/new': typeof WorksNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/items': typeof ItemsRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/works': typeof WorksRoute
   '/articles/$slug': typeof ArticlesSlugRoute
   '/articles/new': typeof ArticlesNewRoute
-  '/items/$id': typeof ItemsIdRoute
-  '/items/new': typeof ItemsNewRoute
   '/people/$id': typeof PeopleIdRoute
+  '/works/$id': typeof WorksIdRoute
+  '/works/new': typeof WorksNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/items': typeof ItemsRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/works': typeof WorksRoute
   '/articles_/$slug': typeof ArticlesSlugRoute
   '/articles_/new': typeof ArticlesNewRoute
-  '/items_/$id': typeof ItemsIdRoute
-  '/items_/new': typeof ItemsNewRoute
   '/people/$id': typeof PeopleIdRoute
+  '/works_/$id': typeof WorksIdRoute
+  '/works_/new': typeof WorksNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/items'
     | '/settings'
     | '/sign-in'
     | '/sign-up'
+    | '/works'
     | '/articles/$slug'
     | '/articles/new'
-    | '/items/$id'
-    | '/items/new'
     | '/people/$id'
+    | '/works/$id'
+    | '/works/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/items'
     | '/settings'
     | '/sign-in'
     | '/sign-up'
+    | '/works'
     | '/articles/$slug'
     | '/articles/new'
-    | '/items/$id'
-    | '/items/new'
     | '/people/$id'
+    | '/works/$id'
+    | '/works/new'
   id:
     | '__root__'
     | '/'
-    | '/items'
     | '/settings'
     | '/sign-in'
     | '/sign-up'
+    | '/works'
     | '/articles_/$slug'
     | '/articles_/new'
-    | '/items_/$id'
-    | '/items_/new'
     | '/people/$id'
+    | '/works_/$id'
+    | '/works_/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ItemsRoute: typeof ItemsRoute
   SettingsRoute: typeof SettingsRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  WorksRoute: typeof WorksRoute
   ArticlesSlugRoute: typeof ArticlesSlugRoute
   ArticlesNewRoute: typeof ArticlesNewRoute
-  ItemsIdRoute: typeof ItemsIdRoute
-  ItemsNewRoute: typeof ItemsNewRoute
   PeopleIdRoute: typeof PeopleIdRoute
+  WorksIdRoute: typeof WorksIdRoute
+  WorksNewRoute: typeof WorksNewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/works': {
+      id: '/works'
+      path: '/works'
+      fullPath: '/works'
+      preLoaderRoute: typeof WorksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign-up': {
       id: '/sign-up'
       path: '/sign-up'
@@ -183,13 +190,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/items': {
-      id: '/items'
-      path: '/items'
-      fullPath: '/items'
-      preLoaderRoute: typeof ItemsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -197,25 +197,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/works_/new': {
+      id: '/works_/new'
+      path: '/works/new'
+      fullPath: '/works/new'
+      preLoaderRoute: typeof WorksNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/works_/$id': {
+      id: '/works_/$id'
+      path: '/works/$id'
+      fullPath: '/works/$id'
+      preLoaderRoute: typeof WorksIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/people/$id': {
       id: '/people/$id'
       path: '/people/$id'
       fullPath: '/people/$id'
       preLoaderRoute: typeof PeopleIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/items_/new': {
-      id: '/items_/new'
-      path: '/items/new'
-      fullPath: '/items/new'
-      preLoaderRoute: typeof ItemsNewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/items_/$id': {
-      id: '/items_/$id'
-      path: '/items/$id'
-      fullPath: '/items/$id'
-      preLoaderRoute: typeof ItemsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/articles_/new': {
@@ -237,15 +237,15 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ItemsRoute: ItemsRoute,
   SettingsRoute: SettingsRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  WorksRoute: WorksRoute,
   ArticlesSlugRoute: ArticlesSlugRoute,
   ArticlesNewRoute: ArticlesNewRoute,
-  ItemsIdRoute: ItemsIdRoute,
-  ItemsNewRoute: ItemsNewRoute,
   PeopleIdRoute: PeopleIdRoute,
+  WorksIdRoute: WorksIdRoute,
+  WorksNewRoute: WorksNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

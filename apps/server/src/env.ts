@@ -1,7 +1,8 @@
-import type { D1Database } from "@cloudflare/workers-types";
+import type { D1Database, R2Bucket } from "@cloudflare/workers-types";
 
 export interface Bindings {
   DB: D1Database;
+  UPLOADS: R2Bucket;
   ADMIN_API_KEY?: string;
   DEFAULT_PROVIDER?: string;
   ANTHROPIC_API_KEY?: string;

@@ -1,16 +1,16 @@
 import {
-  itemCredits,
-  itemTags,
-  items,
   people,
   tags,
+  workCredits,
+  workTags,
+  works,
   type Person,
 } from "@reel/database";
 import {
   creditInlineSchema,
   type CreditInline,
-  itemInputSchema,
-  itemKindSchema,
+  workInputSchema,
+  workKindSchema,
 } from "@reel/shared";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -20,61 +20,66 @@ import { z } from "zod";
 import { getDb } from "../db";
 import type { AppEnv } from "../env";
 
-export const itemsRouter = new Hono<AppEnv>();
+export const worksRouter = new Hono<AppEnv>();
 
-itemsRouter.get("/", async (c) => {
+worksRouter.get("/", async (c) => {
   const user = c.get("user");
   const db = getDb(c);
   const kindParam = c.req.query("kind");
-  const kind = kindParam ? itemKindSchema.safeParse(kindParam) : null;
+  const kind = kindParam ? workKindSchema.safeParse(kindParam) : null;
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0) || 0);
+  const limit = Math.min(50, Math.max(1, Number(c.req.query("limit") ?? 20) || 20));
   const where = kind?.success
-    ? and(eq(items.userId, user.id), eq(items.kind, kind.data))
-    : eq(items.userId, user.id);
+    ? and(eq(works.userId, user.id), eq(works.kind, kind.data))
+    : eq(works.userId, user.id);
   const rows = await db
     .select()
-    .from(items)
+    .from(works)
     .where(where)
-    .orderBy(desc(items.createdAt));
-  return c.json({ items: rows });
+    .orderBy(desc(works.createdAt))
+    .limit(limit)
+    .offset(offset);
+  const nextOffset = rows.length === limit ? offset + limit : null;
+  return c.json({ works: rows, nextOffset });
 });
 
-itemsRouter.get("/:id{[0-9]+}", async (c) => {
+worksRouter.get("/:id{[0-9]+}", async (c) => {
   const user = c.get("user");
   const id = Number(c.req.param("id"));
   const db = getDb(c);
   const [row] = await db
     .select()
-    .from(items)
-    .where(and(eq(items.id, id), eq(items.userId, user.id)))
+    .from(works)
+    .where(and(eq(works.id, id), eq(works.userId, user.id)))
     .limit(1);
   if (!row) return c.json({ error: "not_found" }, 404);
 
   const [credits, tagRows] = await Promise.all([
     db
       .select({
-        id: itemCredits.id,
-        role: itemCredits.role,
-        character: itemCredits.character,
-        position: itemCredits.position,
+        id: workCredits.id,
+        role: workCredits.role,
+        character: workCredits.character,
+        position: workCredits.position,
         personId: people.id,
         personName: people.name,
         personKind: people.kind,
       })
-      .from(itemCredits)
-      .innerJoin(people, eq(people.id, itemCredits.personId))
-      .where(eq(itemCredits.itemId, id))
-      .orderBy(itemCredits.position),
-    db.select({ tagId: itemTags.tagId }).from(itemTags).where(eq(itemTags.itemId, id)),
+      .from(workCredits)
+      .innerJoin(people, eq(people.id, workCredits.personId))
+      .where(eq(workCredits.workId, id))
+      .orderBy(workCredits.position),
+    db.select({ tagId: workTags.tagId }).from(workTags).where(eq(workTags.workId, id)),
   ]);
 
   return c.json({
-    item: row,
+    work: row,
     credits,
     tagIds: tagRows.map((r) => r.tagId),
   });
 });
 
-itemsRouter.post("/", zValidator("json", itemInputSchema), async (c) => {
+worksRouter.post("/", zValidator("json", workInputSchema), async (c) => {
   const user = c.get("user");
   const input = c.req.valid("json");
   const db = getDb(c);
@@ -82,7 +87,7 @@ itemsRouter.post("/", zValidator("json", itemInputSchema), async (c) => {
   const { credits: inlineCredits = [], ...fields } = input;
 
   const [row] = await db
-    .insert(items)
+    .insert(works)
     .values({ ...fields, userId: user.id })
     .returning();
   if (!row) return c.json({ error: "insert_failed" }, 500);
@@ -91,16 +96,16 @@ itemsRouter.post("/", zValidator("json", itemInputSchema), async (c) => {
     await attachCredits(c, user.id, row.id, inlineCredits);
   }
 
-  return c.json({ item: row }, 201);
+  return c.json({ work: row }, 201);
 });
 
-const patchBodySchema = itemInputSchema
+const patchBodySchema = workInputSchema
   .partial()
   .extend({
     tagIds: z.array(z.number().int()).optional(),
   });
 
-itemsRouter.patch("/:id{[0-9]+}", zValidator("json", patchBodySchema), async (c) => {
+worksRouter.patch("/:id{[0-9]+}", zValidator("json", patchBodySchema), async (c) => {
   const user = c.get("user");
   const id = Number(c.req.param("id"));
   const input = c.req.valid("json");
@@ -109,29 +114,27 @@ itemsRouter.patch("/:id{[0-9]+}", zValidator("json", patchBodySchema), async (c)
   const { credits: _credits, tagIds, ...fields } = input;
   void _credits;
 
-  // Verify ownership first.
   const [owned] = await db
-    .select({ id: items.id })
-    .from(items)
-    .where(and(eq(items.id, id), eq(items.userId, user.id)))
+    .select({ id: works.id })
+    .from(works)
+    .where(and(eq(works.id, id), eq(works.userId, user.id)))
     .limit(1);
   if (!owned) return c.json({ error: "not_found" }, 404);
 
-  let row = null as typeof items.$inferSelect | null;
+  let row = null as typeof works.$inferSelect | null;
   if (Object.keys(fields).length) {
     const [updated] = await db
-      .update(items)
+      .update(works)
       .set({ ...fields, updatedAt: new Date() })
-      .where(and(eq(items.id, id), eq(items.userId, user.id)))
+      .where(and(eq(works.id, id), eq(works.userId, user.id)))
       .returning();
     row = updated ?? null;
   } else {
-    const [existing] = await db.select().from(items).where(eq(items.id, id)).limit(1);
+    const [existing] = await db.select().from(works).where(eq(works.id, id)).limit(1);
     row = existing ?? null;
   }
 
   if (tagIds) {
-    // Verify all provided tag ids belong to the user.
     if (tagIds.length) {
       const ownedTags = await db
         .select({ id: tags.id })
@@ -139,26 +142,26 @@ itemsRouter.patch("/:id{[0-9]+}", zValidator("json", patchBodySchema), async (c)
         .where(and(inArray(tags.id, tagIds), eq(tags.userId, user.id)));
       if (ownedTags.length !== tagIds.length) return c.json({ error: "tag_not_owned" }, 400);
     }
-    await db.delete(itemTags).where(eq(itemTags.itemId, id));
+    await db.delete(workTags).where(eq(workTags.workId, id));
     if (tagIds.length) {
-      await db.insert(itemTags).values(tagIds.map((tagId) => ({ itemId: id, tagId })));
+      await db.insert(workTags).values(tagIds.map((tagId) => ({ workId: id, tagId })));
     }
   }
 
-  return c.json({ item: row });
+  return c.json({ work: row });
 });
 
-itemsRouter.delete("/:id{[0-9]+}", async (c) => {
+worksRouter.delete("/:id{[0-9]+}", async (c) => {
   const user = c.get("user");
   const id = Number(c.req.param("id"));
   const db = getDb(c);
-  await db.delete(items).where(and(eq(items.id, id), eq(items.userId, user.id)));
+  await db.delete(works).where(and(eq(works.id, id), eq(works.userId, user.id)));
   return c.body(null, 204);
 });
 
-// ---- credits management on an item ----
+// ---- credits management on a work ----
 
-itemsRouter.post(
+worksRouter.post(
   "/:id{[0-9]+}/credits",
   zValidator("json", creditInlineSchema),
   async (c) => {
@@ -168,9 +171,9 @@ itemsRouter.post(
     const db = getDb(c);
 
     const [owned] = await db
-      .select({ id: items.id })
-      .from(items)
-      .where(and(eq(items.id, id), eq(items.userId, user.id)))
+      .select({ id: works.id })
+      .from(works)
+      .where(and(eq(works.id, id), eq(works.userId, user.id)))
       .limit(1);
     if (!owned) return c.json({ error: "not_found" }, 404);
 
@@ -178,15 +181,15 @@ itemsRouter.post(
     if (personId == null) return c.json({ error: "upsert_failed" }, 500);
 
     const [existingMax] = await db
-      .select({ maxPos: sql<number>`COALESCE(MAX(${itemCredits.position}), -1)`.as("maxPos") })
-      .from(itemCredits)
-      .where(eq(itemCredits.itemId, id));
+      .select({ maxPos: sql<number>`COALESCE(MAX(${workCredits.position}), -1)`.as("maxPos") })
+      .from(workCredits)
+      .where(eq(workCredits.workId, id));
     const position = Number(existingMax?.maxPos ?? -1) + 1;
 
     const [inserted] = await db
-      .insert(itemCredits)
+      .insert(workCredits)
       .values({
-        itemId: id,
+        workId: id,
         personId,
         role: input.role,
         character: input.character ?? null,
@@ -215,7 +218,7 @@ const creditPatchSchema = creditInlineSchema
   .pick({ role: true, character: true })
   .extend({ position: z.number().int().min(0).optional() });
 
-itemsRouter.patch(
+worksRouter.patch(
   "/:id{[0-9]+}/credits/:creditId{[0-9]+}",
   zValidator("json", creditPatchSchema),
   async (c) => {
@@ -225,27 +228,26 @@ itemsRouter.patch(
     const input = c.req.valid("json");
     const db = getDb(c);
 
-    // Ensure ownership via item.
     const [owned] = await db
-      .select({ id: itemCredits.id })
-      .from(itemCredits)
-      .innerJoin(items, eq(items.id, itemCredits.itemId))
+      .select({ id: workCredits.id })
+      .from(workCredits)
+      .innerJoin(works, eq(works.id, workCredits.workId))
       .where(
         and(
-          eq(itemCredits.id, creditId),
-          eq(itemCredits.itemId, id),
-          eq(items.userId, user.id),
+          eq(workCredits.id, creditId),
+          eq(workCredits.workId, id),
+          eq(works.userId, user.id),
         ),
       )
       .limit(1);
     if (!owned) return c.json({ error: "not_found" }, 404);
 
-    await db.update(itemCredits).set(input).where(eq(itemCredits.id, creditId));
+    await db.update(workCredits).set(input).where(eq(workCredits.id, creditId));
     return c.body(null, 204);
   },
 );
 
-itemsRouter.delete(
+worksRouter.delete(
   "/:id{[0-9]+}/credits/:creditId{[0-9]+}",
   async (c) => {
     const user = c.get("user");
@@ -254,20 +256,20 @@ itemsRouter.delete(
     const db = getDb(c);
 
     const [owned] = await db
-      .select({ id: itemCredits.id })
-      .from(itemCredits)
-      .innerJoin(items, eq(items.id, itemCredits.itemId))
+      .select({ id: workCredits.id })
+      .from(workCredits)
+      .innerJoin(works, eq(works.id, workCredits.workId))
       .where(
         and(
-          eq(itemCredits.id, creditId),
-          eq(itemCredits.itemId, id),
-          eq(items.userId, user.id),
+          eq(workCredits.id, creditId),
+          eq(workCredits.workId, id),
+          eq(works.userId, user.id),
         ),
       )
       .limit(1);
     if (!owned) return c.body(null, 204);
 
-    await db.delete(itemCredits).where(eq(itemCredits.id, creditId));
+    await db.delete(workCredits).where(eq(workCredits.id, creditId));
     return c.body(null, 204);
   },
 );
@@ -277,12 +279,12 @@ itemsRouter.delete(
 async function attachCredits(
   c: Parameters<typeof getDb>[0],
   userId: string,
-  itemId: number,
+  workId: number,
   inputs: CreditInline[],
 ): Promise<void> {
   const db = getDb(c);
   const rows: Array<{
-    itemId: number;
+    workId: number;
     personId: number;
     role: string;
     character: string | null;
@@ -295,7 +297,7 @@ async function attachCredits(
     const personId = await upsertPerson(c, userId, credit);
     if (personId === null) continue;
     rows.push({
-      itemId,
+      workId,
       personId,
       role: credit.role,
       character: credit.character ?? null,
@@ -304,7 +306,7 @@ async function attachCredits(
   }
 
   if (rows.length) {
-    await db.insert(itemCredits).values(rows);
+    await db.insert(workCredits).values(rows);
   }
 }
 

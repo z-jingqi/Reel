@@ -17,17 +17,17 @@ const timestamps = {
     .default(sql`(unixepoch() * 1000)`),
 };
 
-export const ITEM_KINDS = ["movie", "tv", "book", "game"] as const;
-export type ItemKind = (typeof ITEM_KINDS)[number];
+export const WORK_KINDS = ["movie", "tv", "book", "game"] as const;
+export type WorkKind = (typeof WORK_KINDS)[number];
 
-export const ITEM_STATUSES = [
+export const WORK_STATUSES = [
   "wishlist",
   "active",
   "finished",
   "dropped",
   "paused",
 ] as const;
-export type ItemStatus = (typeof ITEM_STATUSES)[number];
+export type WorkStatus = (typeof WORK_STATUSES)[number];
 
 export const PERSON_KINDS = ["person", "studio"] as const;
 export type PersonKind = (typeof PERSON_KINDS)[number];
@@ -96,19 +96,19 @@ export const inviteCodes = sqliteTable(
 
 // ---------- library ----------
 
-export const items = sqliteTable(
-  "items",
+export const works = sqliteTable(
+  "works",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ITEM_KINDS }).notNull(),
+    kind: text("kind", { enum: WORK_KINDS }).notNull(),
     title: text("title").notNull(),
     year: integer("year"),
     releaseDate: text("release_date"),
     rating: integer("rating"),
-    status: text("status", { enum: ITEM_STATUSES }).notNull().default("wishlist"),
+    status: text("status", { enum: WORK_STATUSES }).notNull().default("wishlist"),
     notes: text("notes"),
     coverUrl: text("cover_url"),
     externalIds: text("external_ids", { mode: "json" }).$type<Record<string, string | number>>(),
@@ -116,9 +116,9 @@ export const items = sqliteTable(
     ...timestamps,
   },
   (t) => ({
-    userIdx: index("items_user_idx").on(t.userId),
-    userKindIdx: index("items_user_kind_idx").on(t.userId, t.kind),
-    userStatusIdx: index("items_user_status_idx").on(t.userId, t.status),
+    userIdx: index("works_user_idx").on(t.userId),
+    userKindIdx: index("works_user_kind_idx").on(t.userId, t.kind),
+    userStatusIdx: index("works_user_status_idx").on(t.userId, t.status),
   }),
 );
 
@@ -126,20 +126,20 @@ export const seasons = sqliteTable(
   "seasons",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    itemId: integer("item_id")
+    workId: integer("work_id")
       .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+      .references(() => works.id, { onDelete: "cascade" }),
     number: integer("number").notNull(),
     title: text("title"),
     year: integer("year"),
     rating: integer("rating"),
-    status: text("status", { enum: ITEM_STATUSES }).notNull().default("wishlist"),
+    status: text("status", { enum: WORK_STATUSES }).notNull().default("wishlist"),
     notes: text("notes"),
     completedAt: integer("completed_at"),
     ...timestamps,
   },
   (t) => ({
-    itemNumberUq: uniqueIndex("seasons_item_number_uq").on(t.itemId, t.number),
+    workNumberUq: uniqueIndex("seasons_work_number_uq").on(t.workId, t.number),
   }),
 );
 
@@ -161,13 +161,13 @@ export const people = sqliteTable(
   }),
 );
 
-export const itemCredits = sqliteTable(
-  "item_credits",
+export const workCredits = sqliteTable(
+  "work_credits",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    itemId: integer("item_id")
+    workId: integer("work_id")
       .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+      .references(() => works.id, { onDelete: "cascade" }),
     personId: integer("person_id")
       .notNull()
       .references(() => people.id, { onDelete: "restrict" }),
@@ -176,8 +176,8 @@ export const itemCredits = sqliteTable(
     position: integer("position").notNull().default(0),
   },
   (t) => ({
-    itemIdx: index("item_credits_item_idx").on(t.itemId),
-    personIdx: index("item_credits_person_idx").on(t.personId),
+    workIdx: index("work_credits_work_idx").on(t.workId),
+    personIdx: index("work_credits_person_idx").on(t.personId),
   }),
 );
 
@@ -203,20 +203,20 @@ export const articles = sqliteTable(
   }),
 );
 
-export const articleItems = sqliteTable(
-  "article_items",
+export const articleWorks = sqliteTable(
+  "article_works",
   {
     articleId: integer("article_id")
       .notNull()
       .references(() => articles.id, { onDelete: "cascade" }),
-    itemId: integer("item_id")
+    workId: integer("work_id")
       .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+      .references(() => works.id, { onDelete: "cascade" }),
     position: integer("position").notNull().default(0),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.articleId, t.itemId] }),
-    itemIdx: index("article_items_item_idx").on(t.itemId),
+    pk: primaryKey({ columns: [t.articleId, t.workId] }),
+    workIdx: index("article_works_work_idx").on(t.workId),
   }),
 );
 
@@ -317,18 +317,18 @@ export const tags = sqliteTable(
   }),
 );
 
-export const itemTags = sqliteTable(
-  "item_tags",
+export const workTags = sqliteTable(
+  "work_tags",
   {
-    itemId: integer("item_id")
+    workId: integer("work_id")
       .notNull()
-      .references(() => items.id, { onDelete: "cascade" }),
+      .references(() => works.id, { onDelete: "cascade" }),
     tagId: integer("tag_id")
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.itemId, t.tagId] }),
+    pk: primaryKey({ columns: [t.workId, t.tagId] }),
   }),
 );
 
@@ -392,14 +392,14 @@ export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
-export type Item = typeof items.$inferSelect;
-export type NewItem = typeof items.$inferInsert;
+export type Work = typeof works.$inferSelect;
+export type NewWork = typeof works.$inferInsert;
 export type Season = typeof seasons.$inferSelect;
 export type NewSeason = typeof seasons.$inferInsert;
 export type Person = typeof people.$inferSelect;
 export type NewPerson = typeof people.$inferInsert;
-export type ItemCredit = typeof itemCredits.$inferSelect;
-export type NewItemCredit = typeof itemCredits.$inferInsert;
+export type WorkCredit = typeof workCredits.$inferSelect;
+export type NewWorkCredit = typeof workCredits.$inferInsert;
 export type Article = typeof articles.$inferSelect;
 export type NewArticle = typeof articles.$inferInsert;
 export type Category = typeof categories.$inferSelect;

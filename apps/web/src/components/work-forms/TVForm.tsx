@@ -11,16 +11,16 @@ import {
   StatusField,
   applyDetail,
   initialState,
-  useItemSubmit,
-  type ItemFormState,
+  useWorkSubmit,
+  type WorkFormState,
 } from "./shared";
 
 export function TVForm() {
   const navigate = useNavigate();
-  const [state, setState] = useState<ItemFormState>(initialState);
-  const { saving, error, submit } = useItemSubmit("tv");
+  const [state, setState] = useState<WorkFormState>(initialState);
+  const { saving, error, submit } = useWorkSubmit("tv");
 
-  function update<K extends keyof ItemFormState>(key: K, value: ItemFormState[K]) {
+  function update<K extends keyof WorkFormState>(key: K, value: WorkFormState[K]) {
     setState((s) => ({ ...s, [key]: value }));
   }
 
@@ -102,7 +102,7 @@ export function TVForm() {
         Seasons can be added from the show's detail page after saving.
       </p>
 
-      <FormActions saving={saving} onCancel={() => navigate({ to: "/items", search: { tab: "tv" } })} />
+      <FormActions saving={saving} onCancel={() => navigate({ to: "/works", search: { tab: "tv" } })} />
     </form>
   );
 }

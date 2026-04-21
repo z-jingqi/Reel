@@ -11,6 +11,7 @@ import {
   Bold,
   Bot,
   Code,
+  Eraser,
   FileText,
   Heading1,
   Heading2,
@@ -24,6 +25,7 @@ import {
   Loader2,
   MessageSquare,
   Minus,
+  PanelRight,
   Pencil,
   Quote,
   Redo2,
@@ -43,7 +45,7 @@ import { useRef, useState, type RefObject } from "react";
 import { apiFetch, apiStream } from "../api";
 import { CategoryChipInput } from "./category-chip-input";
 import { Gallery, GalleryImage } from "./editor-extensions/gallery";
-import { ItemLinkInput } from "./item-link-input";
+import { WorkLinkInput } from "./work-link-input";
 import { ResizeHandle } from "./resize-handle";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -81,7 +83,7 @@ interface Initial {
   slug: string;
   bodyJson: string;
   pinned: boolean;
-  itemIds: number[];
+  workIds: number[];
   categoryIds: number[];
   tagIds: number[];
 }
@@ -91,7 +93,7 @@ const EMPTY: Initial = {
   slug: "",
   bodyJson: "{}",
   pinned: false,
-  itemIds: [],
+  workIds: [],
   categoryIds: [],
   tagIds: [],
 };
@@ -104,7 +106,7 @@ interface ChatMessage {
 export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
   const [title, setTitle] = useState(initial.title);
   const [pinned, setPinned] = useState(initial.pinned);
-  const [itemIds, setItemIds] = useState<number[]>(initial.itemIds);
+  const [workIds, setWorkIds] = useState<number[]>(initial.workIds);
   const [categoryIds, setCategoryIds] = useState<number[]>(initial.categoryIds);
   const [tagIds, setTagIds] = useState<number[]>(initial.tagIds);
   const [saving, setSaving] = useState(false);
@@ -114,6 +116,25 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  const [showChat, setShowChat] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("reel:showChat") !== "0";
+  });
+  function toggleChat() {
+    setShowChat((v) => {
+      const next = !v;
+      try {
+        window.localStorage.setItem("reel:showChat", next ? "1" : "0");
+      } catch {
+        // storage disabled
+      }
+      return next;
+    });
+  }
+  function clearChat() {
+    setChatMessages([]);
+  }
 
   const [chatWidth, setChatWidth] = useState<number>(() => {
     if (typeof window === "undefined") return 384;
@@ -166,7 +187,7 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
       bodyJson: JSON.stringify(editor.getJSON()),
       bodyText: editor.getText(),
       pinned,
-      itemIds,
+      workIds,
       categoryIds,
       tagIds,
     };
@@ -202,7 +223,7 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
         action,
         document,
         selection: selection || undefined,
-        itemIds,
+        workIds,
       });
       if (!res.ok || !res.body) return;
 
@@ -298,7 +319,7 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
     try {
       const res = await apiStream("/ai/chat", {
         document: editor.getText(),
-        itemIds,
+        workIds,
         instruction,
       });
       if (!res.ok || !res.body) {
@@ -345,10 +366,21 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
                 setPinned={setPinned}
                 categoryIds={categoryIds}
                 setCategoryIds={setCategoryIds}
-                itemIds={itemIds}
-                setItemIds={setItemIds}
+                workIds={workIds}
+                setWorkIds={setWorkIds}
                 onDelete={del}
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="hidden lg:inline-flex"
+                onClick={toggleChat}
+                title={showChat ? "Hide AI chat" : "Show AI chat"}
+                aria-label={showChat ? "Hide AI chat" : "Show AI chat"}
+              >
+                <PanelRight />
+              </Button>
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="outline" size="sm" className="lg:hidden">
@@ -357,12 +389,27 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
                 </SheetTrigger>
                 <SheetContent side="right" className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-lg">
                   <SheetHeader className="border-b border-border p-4">
-                    <SheetTitle className="flex items-center gap-2">
-                      <Bot className="h-4 w-4" /> AI Chat
-                    </SheetTitle>
-                    <SheetDescription>
-                      Grounded in this article draft and any linked items. Ephemeral.
-                    </SheetDescription>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <SheetTitle className="flex items-center gap-2">
+                          <Bot className="h-4 w-4" /> AI Chat
+                        </SheetTitle>
+                        <SheetDescription>
+                          Grounded in this article draft and any linked works. Ephemeral.
+                        </SheetDescription>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant="ghost"
+                        onClick={clearChat}
+                        disabled={chatMessages.length === 0 && !chatInput}
+                        title="Clear conversation"
+                        aria-label="Clear conversation"
+                      >
+                        <Eraser />
+                      </Button>
+                    </div>
                   </SheetHeader>
                   <ChatPanel
                     messages={chatMessages}
@@ -391,7 +438,7 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
           </div>
         </div>
       </main>
-      <div className="hidden lg:flex lg:shrink-0">
+      <div className={showChat ? "hidden lg:flex lg:shrink-0" : "hidden"}>
         <ResizeHandle
           onResize={handleChatResize}
           getCurrent={() => chatWidthRef.current}
@@ -402,13 +449,26 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
           className="flex shrink-0 flex-col"
           style={{ width: `${chatWidth}px` }}
         >
-          <div className="border-b border-border p-4">
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <Bot className="h-4 w-4" /> AI Chat
-            </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Grounded in this article draft and any linked items. Ephemeral.
-            </p>
+          <div className="flex items-start justify-between gap-3 border-b border-border p-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <Bot className="h-4 w-4" /> AI Chat
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Grounded in this article draft and any linked works. Ephemeral.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              onClick={clearChat}
+              disabled={chatMessages.length === 0 && !chatInput}
+              title="Clear conversation"
+              aria-label="Clear conversation"
+            >
+              <Eraser />
+            </Button>
           </div>
           <ChatPanel
             messages={chatMessages}
@@ -434,8 +494,8 @@ function ManageDialog({
   setPinned,
   categoryIds,
   setCategoryIds,
-  itemIds,
-  setItemIds,
+  workIds,
+  setWorkIds,
   onDelete,
 }: {
   hasId: boolean;
@@ -443,8 +503,8 @@ function ManageDialog({
   setPinned: (v: boolean) => void;
   categoryIds: number[];
   setCategoryIds: (ids: number[]) => void;
-  itemIds: number[];
-  setItemIds: (ids: number[]) => void;
+  workIds: number[];
+  setWorkIds: (ids: number[]) => void;
   onDelete: () => void;
 }) {
   return (
@@ -474,8 +534,8 @@ function ManageDialog({
             <CategoryChipInput selected={categoryIds} onChange={setCategoryIds} />
           </div>
           <div className="space-y-2">
-            <Label>Linked items</Label>
-            <ItemLinkInput selected={itemIds} onChange={setItemIds} />
+            <Label>Linked works</Label>
+            <WorkLinkInput selected={workIds} onChange={setWorkIds} />
           </div>
         </div>
         {hasId && (
@@ -503,11 +563,34 @@ function EditorToolbar({
   const hasSelection =
     editor.state.selection && editor.state.selection.from !== editor.state.selection.to;
 
-  const onAddImage = async () => {
-    const url = window.prompt("Image URL");
-    if (!url) return;
-    const caption = window.prompt("Caption (optional)") ?? "";
-    editor.commands.addImageToGallery({ src: url, caption });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const onAddImage = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/uploads", {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        window.alert(`Upload failed: ${text}`);
+        return;
+      }
+      const { url } = (await res.json()) as { url: string };
+      const caption = window.prompt("Caption (optional)") ?? "";
+      editor.commands.addImageToGallery({ src: url, caption });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const onAddLink = () => {
@@ -648,11 +731,29 @@ function EditorToolbar({
       <Divider />
 
       <ToolbarGroup>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFile(f);
+            e.target.value = "";
+          }}
+        />
         <ToolbarButton
-          label={editor.isActive("gallery") ? "Add image to row" : "Insert image"}
+          label={
+            uploading
+              ? "Uploading…"
+              : editor.isActive("gallery")
+                ? "Add image to row"
+                : "Insert image"
+          }
           onClick={onAddImage}
+          disabled={uploading}
         >
-          <ImageIcon />
+          {uploading ? <Loader2 className="animate-spin" /> : <ImageIcon />}
         </ToolbarButton>
         <ToolbarButton
           label="Link"
@@ -763,7 +864,7 @@ function ChatPanel({
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 && (
           <div className="text-sm text-muted-foreground">
-            Ask anything about the draft or the linked items.
+            Ask anything about the draft or the linked works.
           </div>
         )}
         {messages.map((m, i) => (

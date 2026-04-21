@@ -1,4 +1,4 @@
-import type { ItemKind, ItemStatus } from "@reel/shared";
+import type { WorkKind, WorkStatus } from "@reel/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2, Plus, Trash2, X } from "lucide-react";
@@ -21,15 +21,15 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
-interface ItemDetail {
-  item: {
+interface WorkDetail {
+  work: {
     id: number;
-    kind: ItemKind;
+    kind: WorkKind;
     title: string;
     year: number | null;
     releaseDate: string | null;
     rating: number | null;
-    status: ItemStatus;
+    status: WorkStatus;
     notes: string | null;
     coverUrl: string | null;
   };
@@ -45,7 +45,7 @@ interface ItemDetail {
   tagIds: number[];
 }
 
-const STATUSES: { value: ItemStatus; label: string }[] = [
+const STATUSES: { value: WorkStatus; label: string }[] = [
   { value: "wishlist", label: "Wishlist" },
   { value: "active", label: "Active" },
   { value: "finished", label: "Finished" },
@@ -53,66 +53,66 @@ const STATUSES: { value: ItemStatus; label: string }[] = [
   { value: "paused", label: "Paused" },
 ];
 
-export const Route = createFileRoute("/items_/$id")({
-  component: ItemDetailPage,
+export const Route = createFileRoute("/works_/$id")({
+  component: WorkDetailPage,
 });
 
-function ItemDetailPage() {
+function WorkDetailPage() {
   const { id: idParam } = Route.useParams();
   const id = Number(idParam);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const query = useQuery({
-    queryKey: ["item", id],
-    queryFn: () => apiFetch<ItemDetail>(`/items/${id}`),
+    queryKey: ["work", id],
+    queryFn: () => apiFetch<WorkDetail>(`/works/${id}`),
   });
 
   const patch = useMutation({
-    mutationFn: (patch: Partial<ItemDetail["item"]> & { tagIds?: number[] }) =>
-      apiFetch<{ item: ItemDetail["item"] }>(`/items/${id}`, {
+    mutationFn: (patch: Partial<WorkDetail["work"]> & { tagIds?: number[] }) =>
+      apiFetch<{ work: WorkDetail["work"] }>(`/works/${id}`, {
         method: "PATCH",
         body: JSON.stringify(patch),
       }),
     onMutate: async (patch) => {
-      await queryClient.cancelQueries({ queryKey: ["item", id] });
-      const prev = queryClient.getQueryData<ItemDetail>(["item", id]);
-      queryClient.setQueryData<ItemDetail>(["item", id], (old) => {
+      await queryClient.cancelQueries({ queryKey: ["work", id] });
+      const prev = queryClient.getQueryData<WorkDetail>(["work", id]);
+      queryClient.setQueryData<WorkDetail>(["work", id], (old) => {
         if (!old) return old;
-        const { tagIds: newTagIds, ...itemPatch } = patch;
+        const { tagIds: newTagIds, ...workPatch } = patch;
         return {
           ...old,
-          item: { ...old.item, ...itemPatch },
+          work: { ...old.work, ...workPatch },
           tagIds: newTagIds ?? old.tagIds,
         };
       });
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(["item", id], ctx.prev);
+      if (ctx?.prev) queryClient.setQueryData(["work", id], ctx.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["item", id] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["work", id] }),
   });
 
   const del = useMutation({
-    mutationFn: () => apiFetch(`/items/${id}`, { method: "DELETE" }),
+    mutationFn: () => apiFetch(`/works/${id}`, { method: "DELETE" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["items"] });
-      navigate({ to: "/items", search: { tab: query.data?.item.kind ?? "movie" } });
+      queryClient.invalidateQueries({ queryKey: ["works"] });
+      navigate({ to: "/works", search: { tab: query.data?.work.kind ?? "movie" } });
     },
   });
 
   if (query.isLoading) return <div className="text-muted-foreground">Loading…</div>;
   if (!query.data) return <div className="text-muted-foreground">Not found.</div>;
 
-  const { item, credits, tagIds } = query.data;
+  const { work, credits, tagIds } = query.data;
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <header className="flex gap-6">
-        {item.coverUrl ? (
+        {work.coverUrl ? (
           <img
-            src={item.coverUrl}
+            src={work.coverUrl}
             alt=""
             className="h-48 w-32 shrink-0 rounded border border-border object-cover"
           />
@@ -121,18 +121,18 @@ function ItemDetailPage() {
         )}
         <div className="flex-1 space-y-3">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
-            <Badge variant="secondary">{item.kind}</Badge>
-            {item.releaseDate && <span>Released {item.releaseDate}</span>}
+            <Badge variant="secondary">{work.kind}</Badge>
+            {work.releaseDate && <span>Released {work.releaseDate}</span>}
           </div>
-          <h1 className="text-3xl font-semibold">{item.title}</h1>
-          {item.year && <div className="text-muted-foreground">{item.year}</div>}
+          <h1 className="text-3xl font-semibold">{work.title}</h1>
+          {work.year && <div className="text-muted-foreground">{work.year}</div>}
 
           <div className="flex flex-wrap items-end gap-4 pt-2">
             <div className="w-40 space-y-1.5">
               <Label>Status</Label>
               <Select
-                value={item.status}
-                onValueChange={(v) => patch.mutate({ status: v as ItemStatus })}
+                value={work.status}
+                onValueChange={(v) => patch.mutate({ status: v as WorkStatus })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -150,7 +150,7 @@ function ItemDetailPage() {
               <Label>Rating (1–10)</Label>
               <Input
                 inputMode="numeric"
-                value={item.rating ?? ""}
+                value={work.rating ?? ""}
                 onChange={(e) => {
                   const v = e.target.value.replace(/\D/g, "");
                   const n = v ? Math.max(1, Math.min(10, Number(v))) : null;
@@ -162,7 +162,7 @@ function ItemDetailPage() {
               variant="destructive"
               size="sm"
               onClick={() => {
-                if (confirm(`Delete “${item.title}”? This cannot be undone.`)) {
+                if (confirm(`Delete “${work.title}”? This cannot be undone.`)) {
                   del.mutate();
                 }
               }}
@@ -188,7 +188,7 @@ function ItemDetailPage() {
       <section className="space-y-3">
         <Label>Notes</Label>
         <NotesEditor
-          initial={item.notes ?? ""}
+          initial={work.notes ?? ""}
           onSave={(notes) => patch.mutate({ notes: notes || null })}
         />
       </section>
@@ -199,13 +199,13 @@ function ItemDetailPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Credits</h2>
         </div>
-        <CreditsList itemId={id} credits={credits} />
+        <CreditsList workId={id} credits={credits} />
       </section>
 
-      {item.kind === "tv" && (
+      {work.kind === "tv" && (
         <>
           <Separator />
-          <SeasonsSection itemId={id} />
+          <SeasonsSection workId={id} />
         </>
       )}
     </div>
@@ -247,11 +247,11 @@ function NotesEditor({
 }
 
 function CreditsList({
-  itemId,
+  workId,
   credits,
 }: {
-  itemId: number;
-  credits: ItemDetail["credits"];
+  workId: number;
+  credits: WorkDetail["credits"];
 }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
@@ -264,7 +264,7 @@ function CreditsList({
     if (!name.trim() || !role.trim()) return;
     setSubmitting(true);
     try {
-      await apiFetch(`/items/${itemId}/credits`, {
+      await apiFetch(`/works/${workId}/credits`, {
         method: "POST",
         body: JSON.stringify({
           name: name.trim(),
@@ -276,7 +276,7 @@ function CreditsList({
       setName("");
       setRole("");
       setCharacter("");
-      queryClient.invalidateQueries({ queryKey: ["item", itemId] });
+      queryClient.invalidateQueries({ queryKey: ["work", workId] });
     } finally {
       setSubmitting(false);
     }
@@ -284,19 +284,19 @@ function CreditsList({
 
   const removeCredit = useMutation({
     mutationFn: (creditId: number) =>
-      apiFetch(`/items/${itemId}/credits/${creditId}`, { method: "DELETE" }),
+      apiFetch(`/works/${workId}/credits/${creditId}`, { method: "DELETE" }),
     onMutate: async (creditId) => {
-      await queryClient.cancelQueries({ queryKey: ["item", itemId] });
-      const prev = queryClient.getQueryData<ItemDetail>(["item", itemId]);
-      queryClient.setQueryData<ItemDetail>(["item", itemId], (old) =>
+      await queryClient.cancelQueries({ queryKey: ["work", workId] });
+      const prev = queryClient.getQueryData<WorkDetail>(["work", workId]);
+      queryClient.setQueryData<WorkDetail>(["work", workId], (old) =>
         old ? { ...old, credits: old.credits.filter((c) => c.id !== creditId) } : old,
       );
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(["item", itemId], ctx.prev);
+      if (ctx?.prev) queryClient.setQueryData(["work", workId], ctx.prev);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["item", itemId] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["work", workId] }),
   });
 
   return (

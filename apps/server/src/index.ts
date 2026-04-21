@@ -10,7 +10,6 @@ import { articlesRouter } from "./routes/articles";
 import { authRouter } from "./routes/auth";
 import { categoriesRouter } from "./routes/categories";
 import { configRouter } from "./routes/config";
-import { itemsRouter } from "./routes/items";
 import { lookupRouter } from "./routes/lookup";
 import { memoriesRouter } from "./routes/memories";
 import { peopleRouter } from "./routes/people";
@@ -18,6 +17,8 @@ import { referencesRouter } from "./routes/references";
 import { searchRouter } from "./routes/search";
 import { seasonsRouter } from "./routes/seasons";
 import { tagsRouter } from "./routes/tags";
+import { uploadsRouter } from "./routes/uploads";
+import { worksRouter } from "./routes/works";
 
 const app = new Hono<AppEnv>();
 
@@ -42,7 +43,8 @@ app.route("/api/admin", adminRouter);
 // Guard every other /api/* route.
 app.use("/api/*", requireAuth);
 
-app.route("/api/items", itemsRouter);
+app.route("/api/works", worksRouter);
+app.route("/api/uploads", uploadsRouter);
 app.route("/api/seasons", seasonsRouter);
 app.route("/api/articles", articlesRouter);
 app.route("/api/categories", categoriesRouter);

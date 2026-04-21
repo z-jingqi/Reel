@@ -1,4 +1,4 @@
-import type { ItemKind, LookupCandidate, LookupDetail } from "@reel/shared";
+import type { WorkKind, LookupCandidate, LookupDetail } from "@reel/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -13,7 +13,7 @@ interface Sources {
   rawg: boolean;
 }
 
-const KIND_SOURCE: Record<ItemKind, keyof Sources> = {
+const KIND_SOURCE: Record<WorkKind, keyof Sources> = {
   movie: "tmdb",
   tv: "tmdb",
   book: "google_books",
@@ -24,7 +24,7 @@ export function LookupSearch({
   kind,
   onPick,
 }: {
-  kind: ItemKind;
+  kind: WorkKind;
   onPick: (detail: LookupDetail) => void;
 }) {
   const { data: sourcesData, isLoading: sourcesLoading } = useQuery({
