@@ -3,6 +3,7 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import "tippy.js/dist/tippy.css";
 import "./styles.css";
 import { routeTree } from "./routeTree.gen";
 

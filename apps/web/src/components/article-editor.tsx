@@ -5,47 +5,32 @@ import { useNavigate } from "@tanstack/react-router";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
-import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
-  Bold,
   Bot,
-  Code,
   Eraser,
   FileText,
-  Heading1,
-  Heading2,
-  Heading3,
-  Image as ImageIcon,
-  Italic,
-  Link2,
-  List,
+  Keyboard,
   ListChecks,
-  ListOrdered,
   Loader2,
   MessageSquare,
-  Minus,
   PanelRight,
   Pencil,
-  Quote,
-  Redo2,
   Send,
   Settings,
   Share2,
   Sparkles,
-  SquareCode,
-  Strikethrough,
   Tags,
   Trash2,
-  Underline as UnderlineIcon,
-  Undo2,
   Wand2,
 } from "lucide-react";
-import { useRef, useState, type RefObject } from "react";
+import { forwardRef, useEffect, useRef, useState, type RefObject } from "react";
 
 import { apiFetch, apiStream } from "../api";
 import { CategoryChipInput } from "./category-chip-input";
 import { Gallery, GalleryImage } from "./editor-extensions/gallery";
+import { SlashCommand } from "./editor-extensions/slash-command";
 import { PreviewPanel } from "./preview-panel";
 import { WorkLinkInput } from "./work-link-input";
 import { ResizeHandle } from "./resize-handle";
@@ -67,15 +52,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -105,6 +89,10 @@ interface ChatMessage {
   text: string;
 }
 
+const RIGHT_PANEL_MIN = 320;
+const RIGHT_PANEL_MAX = 1400;
+const RIGHT_PANEL_DEFAULT = 420;
+
 export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
   const [title, setTitle] = useState(initial.title);
   const [pinned, setPinned] = useState(initial.pinned);
@@ -113,6 +101,8 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
   const [tagIds, setTagIds] = useState<number[]>(initial.tagIds);
   const [saving, setSaving] = useState(false);
   const [aiBusy, setAiBusy] = useState<WritingAction | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -121,14 +111,12 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
 
   type RightPanel = "chat" | "preview" | null;
   const [rightPanel, setRightPanelState] = useState<RightPanel>(() => {
-    if (typeof window === "undefined") return "chat";
+    if (typeof window === "undefined") return null;
     const stored = window.localStorage.getItem("reel:rightPanel");
     if (stored === "chat" || stored === "preview" || stored === "none") {
       return stored === "none" ? null : stored;
     }
-    // Legacy: fall back to the old showChat flag if present.
-    const legacy = window.localStorage.getItem("reel:showChat");
-    return legacy === "0" ? null : "chat";
+    return null;
   });
   function setRightPanel(next: RightPanel) {
     setRightPanelState(next);
@@ -149,15 +137,17 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
     setChatMessages([]);
   }
 
-  const [chatWidth, setChatWidth] = useState<number>(() => {
-    if (typeof window === "undefined") return 384;
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return RIGHT_PANEL_DEFAULT;
     const stored = Number(window.localStorage.getItem("reel:chatWidth") ?? "");
-    return Number.isFinite(stored) && stored >= 280 && stored <= 800 ? stored : 384;
+    return Number.isFinite(stored) && stored >= RIGHT_PANEL_MIN && stored <= RIGHT_PANEL_MAX
+      ? stored
+      : RIGHT_PANEL_DEFAULT;
   });
-  const chatWidthRef = useRef(chatWidth);
-  chatWidthRef.current = chatWidth;
-  function handleChatResize(w: number) {
-    setChatWidth(w);
+  const panelWidthRef = useRef(panelWidth);
+  panelWidthRef.current = panelWidth;
+  function handlePanelResize(w: number) {
+    setPanelWidth(w);
     try {
       window.localStorage.setItem("reel:chatWidth", String(w));
     } catch {
@@ -179,16 +169,75 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
       }),
       Gallery,
       GalleryImage,
-      Placeholder.configure({ placeholder: "Start writing…" }),
+      SlashCommand,
+      Placeholder.configure({
+        placeholder: ({ node }) => {
+          if (node.type.name === "heading") return "Heading";
+          return "Type '/' for commands, or just start writing…";
+        },
+      }),
     ],
     content: safeParse(initial.bodyJson) ?? "",
     editorProps: {
       attributes: {
         class:
-          "tiptap prose prose-neutral dark:prose-invert max-w-none focus:outline-none min-h-[calc(100vh-16rem)]",
+          "tiptap prose prose-neutral dark:prose-invert max-w-none focus:outline-none h-full",
+      },
+      handleKeyDown: (_view, event) => {
+        const mod = event.metaKey || event.ctrlKey;
+        if (mod && (event.key === "k" || event.key === "K")) {
+          event.preventDefault();
+          promptLink();
+          return true;
+        }
+        return false;
       },
     },
   });
+
+  function promptLink() {
+    if (!editor) return;
+    const prev = editor.getAttributes("link").href ?? "";
+    const url = window.prompt("URL", prev);
+    if (url === null) return;
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  }
+
+  async function handleImageFile(file: File) {
+    if (!editor) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/uploads", {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+      if (!res.ok) {
+        window.alert(`Upload failed: ${await res.text()}`);
+        return;
+      }
+      const { url } = (await res.json()) as { url: string };
+      const caption = window.prompt("Caption (optional)") ?? "";
+      editor.commands.addImageToGallery({ src: url, caption });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // Slash-command image item fires this event; open the file picker.
+  useEffect(() => {
+    function onInsertImage() {
+      imageInputRef.current?.click();
+    }
+    window.addEventListener("reel:editor-insert-image", onInsertImage);
+    return () => window.removeEventListener("reel:editor-insert-image", onInsertImage);
+  }, []);
 
   async function save() {
     if (!editor) return;
@@ -360,146 +409,161 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
   }
 
   return (
-    <div className="-m-6 flex h-[calc(100vh)] min-h-[calc(100vh)]">
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-5xl px-6 py-8 lg:px-10">
-            <header className="mb-6 flex items-start gap-3">
-              <div className="flex-1">
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Title"
-                  className="!h-auto border-0 bg-transparent px-0 text-3xl font-semibold shadow-none focus-visible:ring-0"
-                />
-              </div>
-              <ManageDialog
-                hasId={Boolean(initial.id)}
-                pinned={pinned}
-                setPinned={setPinned}
-                categoryIds={categoryIds}
-                setCategoryIds={setCategoryIds}
-                workIds={workIds}
-                setWorkIds={setWorkIds}
-                onDelete={del}
-              />
-              <Button
-                type="button"
-                variant={rightPanel === "preview" ? "secondary" : "outline"}
-                size="sm"
-                className="hidden lg:inline-flex"
-                onClick={togglePreview}
-                title={rightPanel === "preview" ? "Hide preview" : "Show preview"}
-                aria-label={rightPanel === "preview" ? "Hide preview" : "Show preview"}
-              >
-                <Share2 />
-              </Button>
-              <Button
-                type="button"
-                variant={rightPanel === "chat" ? "secondary" : "outline"}
-                size="sm"
-                className="hidden lg:inline-flex"
-                onClick={toggleChat}
-                title={rightPanel === "chat" ? "Hide AI chat" : "Show AI chat"}
-                aria-label={rightPanel === "chat" ? "Hide AI chat" : "Show AI chat"}
-              >
-                <PanelRight />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="lg:hidden"
-                onClick={() => setMobilePanel("preview")}
-              >
-                <Share2 /> Preview
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="lg:hidden"
-                onClick={() => setMobilePanel("chat")}
-              >
-                <MessageSquare /> Chat
-              </Button>
-              <Sheet
-                open={mobilePanel !== null}
-                onOpenChange={(o) => {
-                  if (!o) setMobilePanel(null);
-                }}
-              >
-                <SheetContent side="right" className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-lg">
-                  {mobilePanel === "chat" ? (
-                    <>
-                      <SheetHeader className="border-b border-border p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <SheetTitle className="flex items-center gap-2">
-                              <Bot className="h-4 w-4" /> AI Chat
-                            </SheetTitle>
-                            <SheetDescription>
-                              Grounded in this article draft and any linked works. Ephemeral.
-                            </SheetDescription>
-                          </div>
-                          <Button
-                            type="button"
-                            size="icon-xs"
-                            variant="ghost"
-                            onClick={clearChat}
-                            disabled={chatMessages.length === 0 && !chatInput}
-                            title="Clear conversation"
-                            aria-label="Clear conversation"
-                          >
-                            <Eraser />
-                          </Button>
-                        </div>
-                      </SheetHeader>
-                      <ChatPanel
-                        messages={chatMessages}
-                        input={chatInput}
-                        setInput={setChatInput}
-                        send={sendChat}
-                        busy={chatBusy}
-                        scrollRef={chatScrollRef}
-                        onInsert={insertAtCursor}
-                        onAppend={appendToDoc}
-                        onReplaceSelection={replaceSelection}
-                        hasSelection={hasSelection}
-                      />
-                    </>
-                  ) : mobilePanel === "preview" ? (
-                    <>
-                      <SheetHeader className="sr-only">
-                        <SheetTitle>Preview</SheetTitle>
-                        <SheetDescription>Platform-native preview of your article.</SheetDescription>
-                      </SheetHeader>
-                      <PreviewPanel editor={editor} onClose={() => setMobilePanel(null)} />
-                    </>
-                  ) : null}
-                </SheetContent>
-              </Sheet>
-              <Button onClick={save} disabled={saving}>
-                {saving && <Loader2 className="animate-spin" />}
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            </header>
+    <div className="-m-6 flex h-[100vh] min-h-[100vh]">
+      <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex items-center gap-2 px-6 py-3 lg:px-10">
+          <ManageDialog
+            hasId={Boolean(initial.id)}
+            pinned={pinned}
+            setPinned={setPinned}
+            categoryIds={categoryIds}
+            setCategoryIds={setCategoryIds}
+            workIds={workIds}
+            setWorkIds={setWorkIds}
+            onDelete={del}
+          />
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              type="button"
+              variant={rightPanel === "preview" ? "secondary" : "ghost"}
+              size="sm"
+              className="hidden lg:inline-flex"
+              onClick={togglePreview}
+              title={rightPanel === "preview" ? "Hide preview" : "Show preview"}
+              aria-label={rightPanel === "preview" ? "Hide preview" : "Show preview"}
+            >
+              <Share2 />
+            </Button>
+            <Button
+              type="button"
+              variant={rightPanel === "chat" ? "secondary" : "ghost"}
+              size="sm"
+              className="hidden lg:inline-flex"
+              onClick={toggleChat}
+              title={rightPanel === "chat" ? "Hide AI chat" : "Show AI chat"}
+              aria-label={rightPanel === "chat" ? "Hide AI chat" : "Show AI chat"}
+            >
+              <PanelRight />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setMobilePanel("preview")}
+            >
+              <Share2 /> Preview
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setMobilePanel("chat")}
+            >
+              <MessageSquare /> Chat
+            </Button>
+            <Button onClick={save} disabled={saving}>
+              {saving && <Loader2 className="animate-spin" />}
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </header>
 
-            <EditorToolbar editor={editor} aiBusy={aiBusy} onAi={runAiAction} />
-            <div className="mt-3 rounded-md border border-border bg-card px-5 py-4 transition-colors focus-within:border-ring">
-              <EditorContent editor={editor} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+          <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 pb-24 lg:px-10">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Untitled"
+              className="w-full border-0 bg-transparent py-4 text-4xl font-bold tracking-tight outline-none placeholder:text-muted-foreground/50"
+            />
+            <div className="flex min-h-0 flex-1 flex-col">
+              <EditorContent editor={editor} className="flex-1" />
             </div>
           </div>
         </div>
+
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleImageFile(f);
+            e.target.value = "";
+          }}
+        />
+
+        <AiFab busy={aiBusy} onAction={runAiAction} hasSelection={hasSelection} uploading={uploading} />
+
+        <Sheet
+          open={mobilePanel !== null}
+          onOpenChange={(o) => {
+            if (!o) setMobilePanel(null);
+          }}
+        >
+          <SheetContent side="right" className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-lg">
+            {mobilePanel === "chat" ? (
+              <>
+                <SheetHeader className="border-b border-border p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <SheetTitle className="flex items-center gap-2">
+                        <Bot className="h-4 w-4" /> AI Chat
+                      </SheetTitle>
+                      <SheetDescription>
+                        Grounded in this article draft and any linked works. Ephemeral.
+                      </SheetDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={clearChat}
+                      disabled={chatMessages.length === 0 && !chatInput}
+                      title="Clear conversation"
+                      aria-label="Clear conversation"
+                    >
+                      <Eraser />
+                    </Button>
+                  </div>
+                </SheetHeader>
+                <ChatPanel
+                  messages={chatMessages}
+                  input={chatInput}
+                  setInput={setChatInput}
+                  send={sendChat}
+                  busy={chatBusy}
+                  scrollRef={chatScrollRef}
+                  onInsert={insertAtCursor}
+                  onAppend={appendToDoc}
+                  onReplaceSelection={replaceSelection}
+                  hasSelection={hasSelection}
+                />
+              </>
+            ) : mobilePanel === "preview" ? (
+              <>
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Preview</SheetTitle>
+                  <SheetDescription>Platform-native preview of your article.</SheetDescription>
+                </SheetHeader>
+                <PreviewPanel editor={editor} onClose={() => setMobilePanel(null)} />
+              </>
+            ) : null}
+          </SheetContent>
+        </Sheet>
       </main>
+
       <div className={rightPanel ? "hidden lg:flex lg:shrink-0" : "hidden"}>
         <ResizeHandle
-          onResize={handleChatResize}
-          getCurrent={() => chatWidthRef.current}
-          min={280}
-          max={800}
+          onResize={handlePanelResize}
+          getCurrent={() => panelWidthRef.current}
+          min={RIGHT_PANEL_MIN}
+          max={RIGHT_PANEL_MAX}
         />
         <aside
-          className="flex shrink-0 flex-col"
-          style={{ width: `${chatWidth}px` }}
+          className="flex shrink-0 flex-col border-l border-border"
+          style={{ width: `${panelWidth}px` }}
         >
           {rightPanel === "chat" ? (
             <>
@@ -546,6 +610,195 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
   );
 }
 
+function AiFab({
+  busy,
+  onAction,
+  hasSelection,
+  uploading,
+}: {
+  busy: WritingAction | null;
+  onAction: (action: WritingAction) => void;
+  hasSelection: boolean;
+  uploading: boolean;
+}) {
+  const isBusy = busy !== null || uploading;
+  const [fabOpen, setFabOpen] = useState(false);
+  const [introOpen, setIntroOpen] = useState(false);
+
+  function openAction(action: WritingAction) {
+    setFabOpen(false);
+    onAction(action);
+  }
+
+  function openIntro() {
+    setFabOpen(false);
+    setIntroOpen(true);
+  }
+
+  return (
+    <>
+      <div className="pointer-events-none absolute bottom-6 right-6 z-10">
+        <Popover open={fabOpen} onOpenChange={setFabOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              size="icon-lg"
+              className="pointer-events-auto h-12 w-12 rounded-full shadow-lg"
+              aria-label="Assistant"
+              title="Assistant"
+            >
+              {isBusy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="top"
+            align="end"
+            sideOffset={8}
+            className="pointer-events-auto flex w-auto flex-col gap-2 border-none bg-transparent p-0 shadow-none"
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <FabPill icon={<Sparkles />} label="AI" disabled={busy !== null} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="left" className="w-56">
+                <DropdownMenuItem onClick={() => openAction("continue")} disabled={busy !== null}>
+                  <Wand2 /> Continue writing
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => openAction("rewrite")}
+                  disabled={busy !== null || !hasSelection}
+                >
+                  <Pencil /> Rewrite selection
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openAction("summarize")} disabled={busy !== null}>
+                  <FileText /> Summarize article
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => openAction("suggest_title")} disabled={busy !== null}>
+                  <ListChecks /> Suggest title
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openAction("suggest_tags")} disabled={busy !== null}>
+                  <Tags /> Suggest tags
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <FabPill icon={<Keyboard />} label="Intro" onClick={openIntro} />
+          </PopoverContent>
+        </Popover>
+      </div>
+      <IntroDialog open={introOpen} onOpenChange={setIntroOpen} />
+    </>
+  );
+}
+
+const FabPill = forwardRef<
+  HTMLButtonElement,
+  {
+    icon: React.ReactNode;
+    label: string;
+    onClick?: () => void;
+    disabled?: boolean;
+  } & React.ButtonHTMLAttributes<HTMLButtonElement>
+>(function FabPill({ icon, label, onClick, disabled, ...rest }, ref) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex items-center gap-2 self-end rounded-full border border-border bg-popover px-4 py-2 text-sm font-medium text-popover-foreground shadow-md transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+      {...rest}
+    >
+      <span className="[&_svg]:size-4">{icon}</span>
+      {label}
+    </button>
+  );
+});
+
+const SHORTCUTS: Array<{ keys: string; label: string }> = [
+  { keys: "⌘B", label: "Bold" },
+  { keys: "⌘I", label: "Italic" },
+  { keys: "⌘U", label: "Underline" },
+  { keys: "⌘⇧X", label: "Strikethrough" },
+  { keys: "⌘E", label: "Inline code" },
+  { keys: "⌘K", label: "Link" },
+  { keys: "⌘Z", label: "Undo" },
+  { keys: "⌘⇧Z", label: "Redo" },
+  { keys: "⌘⇧7", label: "Numbered list" },
+  { keys: "⌘⇧8", label: "Bullet list" },
+  { keys: "⌘⇧B", label: "Quote" },
+  { keys: "⌘⌥C", label: "Code block" },
+];
+
+const SLASH_COMMANDS: Array<{ cmd: string; label: string }> = [
+  { cmd: "/h1", label: "Heading 1" },
+  { cmd: "/h2", label: "Heading 2" },
+  { cmd: "/h3", label: "Heading 3" },
+  { cmd: "/bullet", label: "Bullet list" },
+  { cmd: "/numbered", label: "Numbered list" },
+  { cmd: "/quote", label: "Quote" },
+  { cmd: "/code", label: "Code block" },
+  { cmd: "/divider", label: "Divider" },
+  { cmd: "/image", label: "Upload image" },
+];
+
+function IntroDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Editor reference</DialogTitle>
+          <DialogDescription>
+            Shortcuts for inline formatting, slash commands for blocks.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Shortcuts
+            </h3>
+            <ul className="space-y-1.5">
+              {SHORTCUTS.map((s) => (
+                <li key={s.label} className="flex items-center justify-between gap-4 text-sm">
+                  <span>{s.label}</span>
+                  <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-xs">
+                    {s.keys}
+                  </kbd>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Slash commands
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Type <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-xs">/</kbd>{" "}
+              on a new line, then filter.
+            </p>
+            <ul className="space-y-1.5">
+              {SLASH_COMMANDS.map((s) => (
+                <li key={s.cmd} className="flex items-center justify-between gap-4 text-sm">
+                  <span>{s.label}</span>
+                  <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-xs">
+                    {s.cmd}
+                  </kbd>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ManageDialog({
   hasId,
   pinned,
@@ -568,7 +821,7 @@ function ManageDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="icon">
+        <Button variant="ghost" size="icon">
           <Settings />
         </Button>
       </DialogTrigger>
@@ -605,292 +858,6 @@ function ManageDialog({
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function EditorToolbar({
-  editor,
-  aiBusy,
-  onAi,
-}: {
-  editor: Editor | null;
-  aiBusy: WritingAction | null;
-  onAi: (action: WritingAction) => void;
-}) {
-  if (!editor) return null;
-  const hasSelection =
-    editor.state.selection && editor.state.selection.from !== editor.state.selection.to;
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-
-  const onAddImage = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFile = async (file: File) => {
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/uploads", {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        window.alert(`Upload failed: ${text}`);
-        return;
-      }
-      const { url } = (await res.json()) as { url: string };
-      const caption = window.prompt("Caption (optional)") ?? "";
-      editor.commands.addImageToGallery({ src: url, caption });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const onAddLink = () => {
-    const prev = editor.getAttributes("link").href ?? "";
-    const url = window.prompt("URL", prev);
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  };
-
-  return (
-    <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-card p-1">
-      <ToolbarGroup>
-        <ToolbarButton
-          label="Undo"
-          onClick={() => editor.chain().focus().undo().run()}
-          disabled={!editor.can().undo()}
-        >
-          <Undo2 />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Redo"
-          onClick={() => editor.chain().focus().redo().run()}
-          disabled={!editor.can().redo()}
-        >
-          <Redo2 />
-        </ToolbarButton>
-      </ToolbarGroup>
-
-      <Divider />
-
-      <ToolbarGroup>
-        <ToolbarButton
-          label="Heading 1"
-          active={editor.isActive("heading", { level: 1 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        >
-          <Heading1 />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Heading 2"
-          active={editor.isActive("heading", { level: 2 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        >
-          <Heading2 />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Heading 3"
-          active={editor.isActive("heading", { level: 3 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-        >
-          <Heading3 />
-        </ToolbarButton>
-      </ToolbarGroup>
-
-      <Divider />
-
-      <ToolbarGroup>
-        <ToolbarButton
-          label="Bold"
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-        >
-          <Bold />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Italic"
-          active={editor.isActive("italic")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-        >
-          <Italic />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Underline"
-          active={editor.isActive("underline")}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-        >
-          <UnderlineIcon />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Strikethrough"
-          active={editor.isActive("strike")}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-        >
-          <Strikethrough />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Inline code"
-          active={editor.isActive("code")}
-          onClick={() => editor.chain().focus().toggleCode().run()}
-        >
-          <Code />
-        </ToolbarButton>
-      </ToolbarGroup>
-
-      <Divider />
-
-      <ToolbarGroup>
-        <ToolbarButton
-          label="Bullet list"
-          active={editor.isActive("bulletList")}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-        >
-          <List />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Ordered list"
-          active={editor.isActive("orderedList")}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        >
-          <ListOrdered />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Quote"
-          active={editor.isActive("blockquote")}
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        >
-          <Quote />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Code block"
-          active={editor.isActive("codeBlock")}
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-        >
-          <SquareCode />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Horizontal rule"
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
-        >
-          <Minus />
-        </ToolbarButton>
-      </ToolbarGroup>
-
-      <Divider />
-
-      <ToolbarGroup>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleFile(f);
-            e.target.value = "";
-          }}
-        />
-        <ToolbarButton
-          label={
-            uploading
-              ? "Uploading…"
-              : editor.isActive("gallery")
-                ? "Add image to row"
-                : "Insert image"
-          }
-          onClick={onAddImage}
-          disabled={uploading}
-        >
-          {uploading ? <Loader2 className="animate-spin" /> : <ImageIcon />}
-        </ToolbarButton>
-        <ToolbarButton
-          label="Link"
-          active={editor.isActive("link")}
-          onClick={onAddLink}
-        >
-          <Link2 />
-        </ToolbarButton>
-      </ToolbarGroup>
-
-      <div className="ml-auto">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="xs" variant="outline">
-              <Sparkles />
-              AI
-              {aiBusy && <Loader2 className="animate-spin" />}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onAi("continue")} disabled={aiBusy !== null}>
-              <Wand2 /> Continue writing
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onAi("rewrite")}
-              disabled={aiBusy !== null || !hasSelection}
-            >
-              <Pencil /> Rewrite selection
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAi("summarize")} disabled={aiBusy !== null}>
-              <FileText /> Summarize article
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onAi("suggest_title")} disabled={aiBusy !== null}>
-              <ListChecks /> Suggest title
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAi("suggest_tags")} disabled={aiBusy !== null}>
-              <Tags /> Suggest tags
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
-  );
-}
-
-function ToolbarGroup({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center gap-0.5">{children}</div>;
-}
-
-function Divider() {
-  return <div className="mx-1 h-4 w-px bg-border" />;
-}
-
-function ToolbarButton({
-  label,
-  active,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Button
-      type="button"
-      size="icon-sm"
-      variant={active ? "secondary" : "ghost"}
-      title={label}
-      aria-label={label}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {children}
-    </Button>
   );
 }
 
