@@ -1,11 +1,20 @@
 import { people, workCredits, works } from "@reel/database";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 
 import { getDb } from "../db";
 import type { AppEnv } from "../env";
 
 export const peopleRouter = new Hono<AppEnv>();
+
+// Same global/private visibility rule as works: null owner = global, set owner
+// = only visible to that user.
+function personVisibleTo(userId: string) {
+  return or(isNull(people.ownerId), eq(people.ownerId, userId));
+}
+function workVisibleTo(userId: string) {
+  return or(isNull(works.ownerId), eq(works.ownerId, userId));
+}
 
 peopleRouter.get("/:id{[0-9]+}", async (c) => {
   const user = c.get("user");
@@ -20,9 +29,10 @@ peopleRouter.get("/:id{[0-9]+}", async (c) => {
       name: people.name,
       kind: people.kind,
       externalIds: people.externalIds,
+      ownerId: people.ownerId,
     })
     .from(people)
-    .where(and(eq(people.id, id), eq(people.userId, user.id)))
+    .where(and(eq(people.id, id), personVisibleTo(user.id)))
     .limit(1);
   if (!person) return c.json({ error: "not_found" }, 404);
 
@@ -40,7 +50,7 @@ peopleRouter.get("/:id{[0-9]+}", async (c) => {
     })
     .from(workCredits)
     .innerJoin(works, eq(works.id, workCredits.workId))
-    .where(and(eq(workCredits.personId, id), eq(works.userId, user.id)))
+    .where(and(eq(workCredits.personId, id), workVisibleTo(user.id)))
     .orderBy(asc(works.kind), asc(works.title))
     .limit(limit)
     .offset(offset);

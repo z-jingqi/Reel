@@ -84,7 +84,7 @@ export function useWorkSubmit(kind: WorkKind) {
         rating: state.rating ? Number(state.rating) : null,
         status: state.status,
         coverUrl: state.coverUrl || null,
-        notes: state.notes || null,
+        synopsis: state.notes || null,
         externalIds: state.externalIds,
         credits: state.credits,
       };

@@ -28,10 +28,13 @@ interface WorkDetail {
     title: string;
     year: number | null;
     releaseDate: string | null;
+    ownerId: string | null;
+    synopsis: string | null;
+    coverUrl: string | null;
+    // From the caller's shelf row:
     rating: number | null;
     status: WorkStatus;
     notes: string | null;
-    coverUrl: string | null;
   };
   credits: Array<{
     id: number;
@@ -186,10 +189,10 @@ function WorkDetailPage() {
       <Separator />
 
       <section className="space-y-3">
-        <Label>Notes</Label>
+        <Label>Synopsis</Label>
         <NotesEditor
-          initial={work.notes ?? ""}
-          onSave={(notes) => patch.mutate({ notes: notes || null })}
+          initial={work.synopsis ?? ""}
+          onSave={(synopsis) => patch.mutate({ synopsis: synopsis || null })}
         />
       </section>
 

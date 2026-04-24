@@ -5,9 +5,14 @@ import {
   resolveModel,
   type ModelSelection,
 } from "@reel/ai-core";
-import { modelSelectionSchema, writingRequestSchema } from "@reel/shared";
+import {
+  adaptRequestSchema,
+  modelSelectionSchema,
+  writingRequestSchema,
+  type Platform,
+} from "@reel/shared";
 import { streamText } from "ai";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
@@ -77,7 +82,12 @@ aiRouter.post("/writing", zValidator("json", writingRequestSchema), async (c) =>
     const rows = await db
       .select()
       .from(works)
-      .where(and(inArray(works.id, req.workIds), eq(works.userId, user.id)));
+      .where(
+        and(
+          inArray(works.id, req.workIds),
+          or(isNull(works.ownerId), eq(works.ownerId, user.id)),
+        ),
+      );
     if (rows.length) {
       linkedWorksBlock =
         "\n\nLinked works:\n" +
@@ -121,7 +131,12 @@ aiRouter.post(
       const rows = await db
         .select()
         .from(works)
-        .where(and(inArray(works.id, workIds), eq(works.userId, user.id)));
+        .where(
+          and(
+            inArray(works.id, workIds),
+            or(isNull(works.ownerId), eq(works.ownerId, user.id)),
+          ),
+        );
       linkedWorksBlock = rows
         .map((r) => `- [${r.kind}] ${r.title}${r.year ? ` (${r.year})` : ""}`)
         .join("\n");
@@ -140,6 +155,57 @@ aiRouter.post(
     return result.toTextStreamResponse();
   },
 );
+
+// Prompt registry for /ai/adapt. Keyed on Platform so the type system forces
+// a prompt to exist for every platform in the shared schema. Adding a new
+// platform: add the enum entry in packages/shared, add a prompt here, add a
+// transform in apps/web/src/lib/platforms.
+const ADAPT_PROMPTS: Record<Platform, string> = {
+  medium:
+    "You are adapting a Markdown article for Medium. Keep the author's voice, tone, and argument. " +
+    "Output valid Markdown only — no commentary, no preamble, no code fences around the whole output. " +
+    "Medium renders Markdown faithfully, so preserve headings, lists, quotes, and images as-is. " +
+    "You may lightly tighten prose, but do not remove sections or change meaning.",
+  wechat:
+    "You are adapting a Markdown article for 微信公众号 (WeChat Official Account). " +
+    "Rewrite in fluent 中文 (translate only if the source is not Chinese). " +
+    "Structure it for WeChat reading habits: a hook opening, frequent short paragraphs, clear section headings, " +
+    "and occasional emphasis. Preserve the author's point of view and factual claims. " +
+    "Output valid Markdown only — no commentary, no preamble.",
+  x:
+    "You are adapting a Markdown article into an X (Twitter) thread. " +
+    "Output a numbered thread, one tweet per line, each strictly ≤ 270 characters " +
+    "(leave headroom for the thread counter the client will add). " +
+    "Use the format: `1/ …`, `2/ …`, etc. " +
+    "Open with a hook tweet. Preserve the article's key claims and any concrete examples. " +
+    "Plain text only — no Markdown syntax, no hashtag spam (≤ 2 hashtags total, only if genuinely useful).",
+  xiaohongshu:
+    "You are adapting a Markdown article into a 小红书 (Xiaohongshu / RedNote) post. " +
+    "Rewrite in 中文. Structure: a punchy title-hook line, then short paragraphs with line breaks between them, " +
+    "liberal emojis where natural, and 3–6 relevant hashtags at the very end on a single line prefixed with '#'. " +
+    "Tone: personal, warm, conversational — not corporate. " +
+    "Plain text only, no Markdown headings or lists.",
+};
+
+aiRouter.post("/adapt", zValidator("json", adaptRequestSchema), async (c) => {
+  const user = c.get("user");
+  const { platform, markdown } = c.req.valid("json");
+
+  const [override, style] = await Promise.all([
+    loadModelOverride(c, user.id, "model:writing"),
+    loadMemory(c, user.id, "style_writing"),
+  ]);
+  const selection = resolveModel("writing", c.env, override);
+  const model = getModelInstance(selection, credentialsFromEnv(c.env));
+
+  const system = buildSystem(ADAPT_PROMPTS[platform], style);
+  const result = streamText({
+    model,
+    system,
+    prompt: `Source article (Markdown):\n---\n${markdown}\n---\n\nRewrite for ${platform}.`,
+  });
+  return result.toTextStreamResponse();
+});
 
 function baseWritingSystem(action: string): string {
   switch (action) {

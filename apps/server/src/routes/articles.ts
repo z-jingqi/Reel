@@ -8,7 +8,7 @@ import {
   works,
 } from "@reel/database";
 import { articleInputSchema, slugify } from "@reel/shared";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 
@@ -74,11 +74,17 @@ async function verifyOwnedIds(
 ): Promise<string | null> {
   const db = getDb(c);
   if (workIds.length) {
+    // Articles may link to any work the user can see: globals OR their own privates.
     const owned = await db
       .select({ id: works.id })
       .from(works)
-      .where(and(inArray(works.id, workIds), eq(works.userId, userId)));
-    if (owned.length !== workIds.length) return "work_not_owned";
+      .where(
+        and(
+          inArray(works.id, workIds),
+          or(isNull(works.ownerId), eq(works.ownerId, userId)),
+        ),
+      );
+    if (owned.length !== workIds.length) return "work_not_visible";
   }
   if (categoryIds.length) {
     const owned = await db

@@ -68,32 +68,50 @@ export const creditInlineSchema = z.object({
 });
 export type CreditInline = z.infer<typeof creditInlineSchema>;
 
+// Reference fields for a work — shared on globals, editable by the owner on
+// privates. Per-user state (rating, status, notes, completedAt) lives in
+// shelfInputSchema below. The HTTP endpoints accept a combined body and split
+// the write server-side so the client can keep sending one payload.
 export const workInputSchema = z.object({
   kind: workKindSchema,
   title: nonEmpty,
   year: z.number().int().optional().nullable(),
   releaseDate: releaseDateSchema.optional().nullable(),
-  rating: z.number().int().min(1).max(10).optional().nullable(),
-  status: workStatusSchema.default("wishlist"),
-  notes: optionalText,
+  synopsis: optionalText,
   coverUrl: optionalText,
   externalIds: z.record(z.union([z.string(), z.number()])).optional().nullable(),
-  completedAt: z.number().int().optional().nullable(),
   credits: z.array(creditInlineSchema).optional(),
 });
 export type WorkInput = z.infer<typeof workInputSchema>;
+
+export const shelfInputSchema = z.object({
+  status: workStatusSchema.default("wishlist"),
+  rating: z.number().int().min(1).max(10).optional().nullable(),
+  notes: optionalText,
+  completedAt: z.number().int().optional().nullable(),
+});
+export type ShelfInput = z.infer<typeof shelfInputSchema>;
+
+// Combined body accepted by POST/PATCH /api/works. Server splits reference
+// fields into `works` and shelf fields into `shelves`.
+export const workWithShelfInputSchema = workInputSchema.merge(
+  shelfInputSchema.partial(),
+);
+export type WorkWithShelfInput = z.infer<typeof workWithShelfInputSchema>;
 
 export const seasonInputSchema = z.object({
   workId: z.number().int(),
   number: z.number().int().min(0),
   title: optionalText,
   year: z.number().int().optional().nullable(),
-  rating: z.number().int().min(1).max(10).optional().nullable(),
-  status: workStatusSchema.default("wishlist"),
-  notes: optionalText,
-  completedAt: z.number().int().optional().nullable(),
 });
 export type SeasonInput = z.infer<typeof seasonInputSchema>;
+
+// Accepted by shelf endpoints that target a season.
+export const seasonShelfInputSchema = shelfInputSchema.extend({
+  seasonId: z.number().int(),
+});
+export type SeasonShelfInput = z.infer<typeof seasonShelfInputSchema>;
 
 export const personInputSchema = z.object({
   name: nonEmpty,
@@ -184,6 +202,21 @@ export const writingRequestSchema = z.object({
   workIds: z.array(z.number().int()).default([]),
 });
 export type WritingRequest = z.infer<typeof writingRequestSchema>;
+
+// Target platforms for the preview + copy feature. Add new ids here first —
+// the rest of the stack (server prompt registry, web registry) keys off this
+// union. The feature is preview-and-paste only; no API integrations.
+export const platformSchema = z.enum(["medium", "wechat", "x", "xiaohongshu"]);
+export type Platform = z.infer<typeof platformSchema>;
+
+// Request body for POST /api/ai/adapt — AI rewrites the source Markdown in
+// the target platform's voice/structure. Output streams back as Markdown.
+export const adaptRequestSchema = z.object({
+  platform: platformSchema,
+  markdown: z.string(),
+  theme: z.string().optional(),
+});
+export type AdaptRequest = z.infer<typeof adaptRequestSchema>;
 
 export const memoryKindSchema = z.enum(["style_writing", "style_about"]);
 export type MemoryKind = z.infer<typeof memoryKindSchema>;

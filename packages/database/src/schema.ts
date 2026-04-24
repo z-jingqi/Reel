@@ -96,29 +96,29 @@ export const inviteCodes = sqliteTable(
 
 // ---------- library ----------
 
+// Works form a shared catalog. `ownerId` is nullable:
+//   - NULL    → global, visible to every user, reference fields locked (admin/refresh only)
+//   - set     → private, visible only to the owner, fully editable by them
+// Per-user data (status, rating, personal notes, completedAt) lives on the
+// `shelves` table, not here. `synopsis` is reference data (shared on globals).
 export const works = sqliteTable(
   "works",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    ownerId: text("owner_id").references(() => users.id, { onDelete: "cascade" }),
     kind: text("kind", { enum: WORK_KINDS }).notNull(),
     title: text("title").notNull(),
     year: integer("year"),
     releaseDate: text("release_date"),
-    rating: integer("rating"),
-    status: text("status", { enum: WORK_STATUSES }).notNull().default("wishlist"),
-    notes: text("notes"),
+    synopsis: text("synopsis"),
     coverUrl: text("cover_url"),
     externalIds: text("external_ids", { mode: "json" }).$type<Record<string, string | number>>(),
-    completedAt: integer("completed_at"),
     ...timestamps,
   },
   (t) => ({
-    userIdx: index("works_user_idx").on(t.userId),
-    userKindIdx: index("works_user_kind_idx").on(t.userId, t.kind),
-    userStatusIdx: index("works_user_status_idx").on(t.userId, t.status),
+    ownerIdx: index("works_owner_idx").on(t.ownerId),
+    kindIdx: index("works_kind_idx").on(t.kind),
+    ownerKindIdx: index("works_owner_kind_idx").on(t.ownerId, t.kind),
   }),
 );
 
@@ -132,10 +132,6 @@ export const seasons = sqliteTable(
     number: integer("number").notNull(),
     title: text("title"),
     year: integer("year"),
-    rating: integer("rating"),
-    status: text("status", { enum: WORK_STATUSES }).notNull().default("wishlist"),
-    notes: text("notes"),
-    completedAt: integer("completed_at"),
     ...timestamps,
   },
   (t) => ({
@@ -143,21 +139,50 @@ export const seasons = sqliteTable(
   }),
 );
 
-export const people = sqliteTable(
-  "people",
+// Per-user shelf entries. One row per (user, work) for work-level state, and
+// optionally one row per (user, work, season) for season-level state when
+// tracking TV seasons separately. Uniqueness is enforced by partial indexes
+// declared in the migration SQL (Drizzle doesn't model partial uniques here).
+export const shelves = sqliteTable(
+  "shelves",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    workId: integer("work_id")
+      .notNull()
+      .references(() => works.id, { onDelete: "cascade" }),
+    seasonId: integer("season_id").references(() => seasons.id, { onDelete: "cascade" }),
+    status: text("status", { enum: WORK_STATUSES }).notNull().default("wishlist"),
+    rating: integer("rating"),
+    notes: text("notes"),
+    completedAt: integer("completed_at"),
+    ...timestamps,
+  },
+  (t) => ({
+    userIdx: index("shelves_user_idx").on(t.userId),
+    userWorkIdx: index("shelves_user_work_idx").on(t.userId, t.workId),
+    userStatusIdx: index("shelves_user_status_idx").on(t.userId, t.status),
+  }),
+);
+
+// Same global/private split as works. People credited on a GLOBAL work must
+// also be global (ownerId IS NULL). People credited on a PRIVATE work may be
+// either global or owned by the same user. Enforced in app code.
+export const people = sqliteTable(
+  "people",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    ownerId: text("owner_id").references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     kind: text("kind", { enum: PERSON_KINDS }).notNull().default("person"),
     externalIds: text("external_ids", { mode: "json" }).$type<Record<string, string | number>>(),
     ...timestamps,
   },
   (t) => ({
-    userIdx: index("people_user_idx").on(t.userId),
-    userNameIdx: index("people_user_name_idx").on(t.userId, t.name),
+    ownerIdx: index("people_owner_idx").on(t.ownerId),
+    nameIdx: index("people_name_idx").on(t.name),
   }),
 );
 
@@ -396,6 +421,8 @@ export type Work = typeof works.$inferSelect;
 export type NewWork = typeof works.$inferInsert;
 export type Season = typeof seasons.$inferSelect;
 export type NewSeason = typeof seasons.$inferInsert;
+export type Shelf = typeof shelves.$inferSelect;
+export type NewShelf = typeof shelves.$inferInsert;
 export type Person = typeof people.$inferSelect;
 export type NewPerson = typeof people.$inferInsert;
 export type WorkCredit = typeof workCredits.$inferSelect;

@@ -31,6 +31,7 @@ import {
   Redo2,
   Send,
   Settings,
+  Share2,
   Sparkles,
   SquareCode,
   Strikethrough,
@@ -45,6 +46,7 @@ import { useRef, useState, type RefObject } from "react";
 import { apiFetch, apiStream } from "../api";
 import { CategoryChipInput } from "./category-chip-input";
 import { Gallery, GalleryImage } from "./editor-extensions/gallery";
+import { PreviewPanel } from "./preview-panel";
 import { WorkLinkInput } from "./work-link-input";
 import { ResizeHandle } from "./resize-handle";
 import { Button } from "@/components/ui/button";
@@ -117,21 +119,32 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
   const [chatBusy, setChatBusy] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
-  const [showChat, setShowChat] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem("reel:showChat") !== "0";
+  type RightPanel = "chat" | "preview" | null;
+  const [rightPanel, setRightPanelState] = useState<RightPanel>(() => {
+    if (typeof window === "undefined") return "chat";
+    const stored = window.localStorage.getItem("reel:rightPanel");
+    if (stored === "chat" || stored === "preview" || stored === "none") {
+      return stored === "none" ? null : stored;
+    }
+    // Legacy: fall back to the old showChat flag if present.
+    const legacy = window.localStorage.getItem("reel:showChat");
+    return legacy === "0" ? null : "chat";
   });
-  function toggleChat() {
-    setShowChat((v) => {
-      const next = !v;
-      try {
-        window.localStorage.setItem("reel:showChat", next ? "1" : "0");
-      } catch {
-        // storage disabled
-      }
-      return next;
-    });
+  function setRightPanel(next: RightPanel) {
+    setRightPanelState(next);
+    try {
+      window.localStorage.setItem("reel:rightPanel", next ?? "none");
+    } catch {
+      // storage disabled
+    }
   }
+  function toggleChat() {
+    setRightPanel(rightPanel === "chat" ? null : "chat");
+  }
+  function togglePreview() {
+    setRightPanel(rightPanel === "preview" ? null : "preview");
+  }
+  const [mobilePanel, setMobilePanel] = useState<RightPanel>(null);
   function clearChat() {
     setChatMessages([]);
   }
@@ -372,57 +385,96 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
               />
               <Button
                 type="button"
-                variant="outline"
+                variant={rightPanel === "preview" ? "secondary" : "outline"}
+                size="sm"
+                className="hidden lg:inline-flex"
+                onClick={togglePreview}
+                title={rightPanel === "preview" ? "Hide preview" : "Show preview"}
+                aria-label={rightPanel === "preview" ? "Hide preview" : "Show preview"}
+              >
+                <Share2 />
+              </Button>
+              <Button
+                type="button"
+                variant={rightPanel === "chat" ? "secondary" : "outline"}
                 size="sm"
                 className="hidden lg:inline-flex"
                 onClick={toggleChat}
-                title={showChat ? "Hide AI chat" : "Show AI chat"}
-                aria-label={showChat ? "Hide AI chat" : "Show AI chat"}
+                title={rightPanel === "chat" ? "Hide AI chat" : "Show AI chat"}
+                aria-label={rightPanel === "chat" ? "Hide AI chat" : "Show AI chat"}
               >
                 <PanelRight />
               </Button>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="sm" className="lg:hidden">
-                    <MessageSquare /> Chat
-                  </Button>
-                </SheetTrigger>
+              <Button
+                variant="outline"
+                size="sm"
+                className="lg:hidden"
+                onClick={() => setMobilePanel("preview")}
+              >
+                <Share2 /> Preview
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="lg:hidden"
+                onClick={() => setMobilePanel("chat")}
+              >
+                <MessageSquare /> Chat
+              </Button>
+              <Sheet
+                open={mobilePanel !== null}
+                onOpenChange={(o) => {
+                  if (!o) setMobilePanel(null);
+                }}
+              >
                 <SheetContent side="right" className="flex h-full w-full flex-col gap-0 p-0 sm:max-w-lg">
-                  <SheetHeader className="border-b border-border p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <SheetTitle className="flex items-center gap-2">
-                          <Bot className="h-4 w-4" /> AI Chat
-                        </SheetTitle>
-                        <SheetDescription>
-                          Grounded in this article draft and any linked works. Ephemeral.
-                        </SheetDescription>
-                      </div>
-                      <Button
-                        type="button"
-                        size="icon-xs"
-                        variant="ghost"
-                        onClick={clearChat}
-                        disabled={chatMessages.length === 0 && !chatInput}
-                        title="Clear conversation"
-                        aria-label="Clear conversation"
-                      >
-                        <Eraser />
-                      </Button>
-                    </div>
-                  </SheetHeader>
-                  <ChatPanel
-                    messages={chatMessages}
-                    input={chatInput}
-                    setInput={setChatInput}
-                    send={sendChat}
-                    busy={chatBusy}
-                    scrollRef={chatScrollRef}
-                    onInsert={insertAtCursor}
-                    onAppend={appendToDoc}
-                    onReplaceSelection={replaceSelection}
-                    hasSelection={hasSelection}
-                  />
+                  {mobilePanel === "chat" ? (
+                    <>
+                      <SheetHeader className="border-b border-border p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <SheetTitle className="flex items-center gap-2">
+                              <Bot className="h-4 w-4" /> AI Chat
+                            </SheetTitle>
+                            <SheetDescription>
+                              Grounded in this article draft and any linked works. Ephemeral.
+                            </SheetDescription>
+                          </div>
+                          <Button
+                            type="button"
+                            size="icon-xs"
+                            variant="ghost"
+                            onClick={clearChat}
+                            disabled={chatMessages.length === 0 && !chatInput}
+                            title="Clear conversation"
+                            aria-label="Clear conversation"
+                          >
+                            <Eraser />
+                          </Button>
+                        </div>
+                      </SheetHeader>
+                      <ChatPanel
+                        messages={chatMessages}
+                        input={chatInput}
+                        setInput={setChatInput}
+                        send={sendChat}
+                        busy={chatBusy}
+                        scrollRef={chatScrollRef}
+                        onInsert={insertAtCursor}
+                        onAppend={appendToDoc}
+                        onReplaceSelection={replaceSelection}
+                        hasSelection={hasSelection}
+                      />
+                    </>
+                  ) : mobilePanel === "preview" ? (
+                    <>
+                      <SheetHeader className="sr-only">
+                        <SheetTitle>Preview</SheetTitle>
+                        <SheetDescription>Platform-native preview of your article.</SheetDescription>
+                      </SheetHeader>
+                      <PreviewPanel editor={editor} onClose={() => setMobilePanel(null)} />
+                    </>
+                  ) : null}
                 </SheetContent>
               </Sheet>
               <Button onClick={save} disabled={saving}>
@@ -438,7 +490,7 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
           </div>
         </div>
       </main>
-      <div className={showChat ? "hidden lg:flex lg:shrink-0" : "hidden"}>
+      <div className={rightPanel ? "hidden lg:flex lg:shrink-0" : "hidden"}>
         <ResizeHandle
           onResize={handleChatResize}
           getCurrent={() => chatWidthRef.current}
@@ -449,39 +501,45 @@ export function ArticleEditor({ initial = EMPTY }: { initial?: Initial }) {
           className="flex shrink-0 flex-col"
           style={{ width: `${chatWidth}px` }}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-border p-4">
-            <div>
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <Bot className="h-4 w-4" /> AI Chat
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Grounded in this article draft and any linked works. Ephemeral.
-              </p>
-            </div>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              onClick={clearChat}
-              disabled={chatMessages.length === 0 && !chatInput}
-              title="Clear conversation"
-              aria-label="Clear conversation"
-            >
-              <Eraser />
-            </Button>
-          </div>
-          <ChatPanel
-            messages={chatMessages}
-            input={chatInput}
-            setInput={setChatInput}
-            send={sendChat}
-            busy={chatBusy}
-            scrollRef={chatScrollRef}
-            onInsert={insertAtCursor}
-            onAppend={appendToDoc}
-            onReplaceSelection={replaceSelection}
-            hasSelection={hasSelection}
-          />
+          {rightPanel === "chat" ? (
+            <>
+              <div className="flex items-start justify-between gap-3 border-b border-border p-4">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-semibold">
+                    <Bot className="h-4 w-4" /> AI Chat
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Grounded in this article draft and any linked works. Ephemeral.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  onClick={clearChat}
+                  disabled={chatMessages.length === 0 && !chatInput}
+                  title="Clear conversation"
+                  aria-label="Clear conversation"
+                >
+                  <Eraser />
+                </Button>
+              </div>
+              <ChatPanel
+                messages={chatMessages}
+                input={chatInput}
+                setInput={setChatInput}
+                send={sendChat}
+                busy={chatBusy}
+                scrollRef={chatScrollRef}
+                onInsert={insertAtCursor}
+                onAppend={appendToDoc}
+                onReplaceSelection={replaceSelection}
+                hasSelection={hasSelection}
+              />
+            </>
+          ) : rightPanel === "preview" ? (
+            <PreviewPanel editor={editor} onClose={() => setRightPanel(null)} />
+          ) : null}
         </aside>
       </div>
     </div>
